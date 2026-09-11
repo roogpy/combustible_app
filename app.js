@@ -70,7 +70,9 @@ const CARGAS_INICIALES = [
     reintegro: null, nota: 'Del Excel — confirmar fecha' },
 ];
 
-const CONFIG_INICIAL = { montoHabitual: 150000, diasHabituales: [1, 3, 5], reservarBolsas: true };
+// La carga habitual arranca vacia: es opcional y solo sirve para precargar el
+// monto y armar el plan de la semana.
+const CONFIG_INICIAL = { montoHabitual: 0, diasHabituales: [1, 3, 5], reservarBolsas: true };
 
 function datosIniciales() {
   return {
@@ -190,6 +192,9 @@ function formatoMiles(texto) {
 }
 
 function montoDe(input) { return Number(input.value.replace(/\D/g, '')); }
+
+// Valor para un campo de monto: vacio en vez de "0".
+function montoTexto(n) { return Number(n) ? formatoMiles(n) : ''; }
 
 function conSeparadorMiles(input) {
   input.addEventListener('input', () => {
@@ -314,22 +319,28 @@ function calcular(excluirId) {
 }
 
 // Opciones para cargar `monto` en `fecha`: cada promo disponible con lo que
-// devolveria respetando lo que ya se uso de sus topes.
+// devolveria respetando lo que ya se uso de sus topes. Sin monto no hay ahorro
+// que calcular (queda en null): se ordena por porcentaje entre las que todavia
+// tienen lugar en el tope.
 function opcionesPara(fecha, monto, excluirId) {
   const { uso } = calcular(excluirId);
   const opciones = datos.promos.filter(p => disponible(p, fecha)).map(p => {
+    const libre = espacioLibre(p, fecha, uso);
+    const conLugar = libre > 0;
+    if (!monto) return { p, teorico: null, ahorro: null, conLugar, completo: conLugar };
     const teorico = Math.round(monto * pctDe(p));
-    const ahorro = Math.round(Math.min(teorico, espacioLibre(p, fecha, uso)));
-    return { p, teorico, ahorro, completo: teorico > 0 && ahorro >= teorico };
+    const ahorro = Math.round(Math.min(teorico, libre));
+    return { p, teorico, ahorro, conLugar, completo: teorico > 0 && ahorro >= teorico };
   });
-  opciones.sort((a, b) => b.ahorro - a.ahorro || ordenPrioridad(a.p) - ordenPrioridad(b.p) || b.p.pct - a.p.pct);
+  const valor = o => (o.ahorro != null ? o.ahorro : o.conLugar ? o.p.pct : 0);
+  opciones.sort((a, b) => valor(b) - valor(a) || ordenPrioridad(a.p) - ordenPrioridad(b.p) || b.p.pct - a.p.pct);
   return { opciones, uso };
 }
 
 // La regla del contador: una bolsa estrategica (Ueno) no se gasta si la promo
 // del dia cubre la carga completa. Sin esa regla gana el mayor ahorro.
 function recomendada(opciones) {
-  const conAhorro = opciones.filter(o => o.ahorro > 0);
+  const conAhorro = opciones.filter(o => (o.ahorro != null ? o.ahorro > 0 : o.conLugar));
   if (!conAhorro.length) return null;
   if (datos.config.reservarBolsas) {
     const delDia = conAhorro.find(o => !esBolsa(o.p));
@@ -413,7 +424,7 @@ const $ = id => document.getElementById(id);
 // ---------- Tab Cargar ----------
 function fechaCarga() { return $('c-fecha').value || hoyISO(); }
 
-function montoCarga() { return montoDe($('c-monto')) || Number(datos.config.montoHabitual) || 0; }
+function montoCarga() { return montoDe($('c-monto')); }
 
 function renderCargar() {
   const { uso, detalle } = calcular();
@@ -438,7 +449,8 @@ function renderOpciones() {
 
   const habitual = datos.config.diasHabituales.includes(aFecha(fecha).getDay());
   $('c-dia-legible').textContent = fechaLegible(fecha, false) + ' · ' +
-    (habitual ? 'día habitual de carga' : 'no es día habitual: sería una carga adicional');
+    (habitual ? 'día habitual de carga' : 'no es día habitual: sería una carga adicional') +
+    (monto ? '' : '. Ingresá el monto para ver cuánto ahorrás.');
 
   const lista = $('c-opciones');
   lista.innerHTML = '';
@@ -446,7 +458,7 @@ function renderOpciones() {
     lista.appendChild(el('li', 'vacio', 'Ninguna promoción aplica este día. Mirá la pestaña Semana para ver el próximo día con descuento.'));
   }
   enPantalla.forEach(o => {
-    const li = el('li', 'opcion' + (o === rec ? ' recomendada' : '') + (o.ahorro === 0 ? ' agotada' : ''));
+    const li = el('li', 'opcion' + (o === rec ? ' recomendada' : '') + (o.conLugar ? '' : ' agotada'));
     li.dataset.promo = o.p.id;
 
     const det = el('div', 'detalle');
@@ -456,20 +468,20 @@ function renderOpciones() {
     det.appendChild(titulo);
     det.appendChild(el('small', null, o.p.tarjeta + ' · ' + o.p.emblemas));
     det.appendChild(el('small', null, textoTopes(o.p, fecha, uso)));
-    if (o.ahorro === 0) {
+    if (!o.conLugar) {
       det.appendChild(el('small', 'aviso', 'Tope agotado: esta carga no tendría descuento.'));
     } else if (!o.completo) {
       det.appendChild(el('small', 'aviso', 'Llega al tope: descuenta solo ' + fmt(o.ahorro / pctDe(o.p)) + ' de la carga.'));
     }
-    if (esBolsa(o.p) && o !== rec && datos.config.reservarBolsas && o.ahorro > 0) {
+    if (esBolsa(o.p) && o !== rec && datos.config.reservarBolsas && o.conLugar) {
       det.appendChild(el('small', 'aviso-suave', 'Bolsa estratégica: mejor guardarla para una carga adicional.'));
     }
     const vig = estadoVigencia(o.p);
     if (vig.clase === 'vence') det.appendChild(el('small', 'aviso', vig.texto));
 
     const der = el('div', 'opcion-monto');
-    der.appendChild(el('strong', null, fmt(o.ahorro)));
-    der.appendChild(el('small', null, o.p.pct + '%'));
+    der.appendChild(el('strong', null, monto ? fmt(o.ahorro) : o.p.pct + '%'));
+    der.appendChild(el('small', null, monto ? o.p.pct + '%' : 'descuento'));
 
     li.append(det, der);
     lista.appendChild(li);
@@ -486,7 +498,8 @@ function renderSelectPromo(opciones, rec) {
   const select = $('c-promo');
   select.innerHTML = '';
   select.appendChild(new Option('Sin promoción', ''));
-  opciones.forEach(o => select.appendChild(new Option(o.p.nombre + ' — ' + fmt(o.ahorro), o.p.id)));
+  opciones.forEach(o => select.appendChild(
+    new Option(o.p.nombre + ' — ' + (o.ahorro != null ? fmt(o.ahorro) : o.p.pct + '%'), o.p.id)));
 
   // La promo de una carga en edicion puede no aplicar a la fecha nueva: se
   // ofrece igual para no perderla sin querer.
@@ -603,7 +616,7 @@ function limpiarFormCarga() {
   editandoCarga = null;
   promoElegida = null;
   $('carga-titulo').textContent = '➕ Registrar carga';
-  $('c-monto').value = formatoMiles(datos.config.montoHabitual);
+  $('c-monto').value = montoTexto(datos.config.montoHabitual);
   $('c-emblema').value = '';
   $('c-reintegro').value = '';
   $('c-nota').value = '';
@@ -846,7 +859,8 @@ function renderSemana() {
     const tarjeta = el('div', 'tarjeta dia-plan' + (iso === hoy ? ' es-hoy' : '') + (habitual ? '' : ' no-habitual'));
     const cab = el('h2', 'con-total');
     cab.appendChild(el('span', null, nombreDia(iso) + ' ' + aFecha(iso).getDate()));
-    cab.appendChild(el('strong', habitual ? '' : 'apagado', habitual ? 'Carga ' + fmt(monto) : 'Sin carga fija'));
+    cab.appendChild(el('strong', habitual ? '' : 'apagado',
+      habitual ? (monto ? 'Carga ' + fmt(monto) : 'Día de carga') : 'Sin carga fija'));
     tarjeta.appendChild(cab);
 
     const ul = el('ul', 'lista compacta');
@@ -878,8 +892,9 @@ function renderSemana() {
   }
 
   const real = totalesRango(semSel, domingo, detalle).ahorro;
-  $('s-plan').textContent = fmt(plan);
-  $('s-esperado').textContent = fmt(esperado);
+  // Sin carga habitual no hay plan en plata: solo los dias.
+  $('s-plan').textContent = monto ? fmt(plan) : '—';
+  $('s-esperado').textContent = monto ? fmt(esperado) : '—';
   $('s-real').textContent = fmt(real);
 
   const bolsas = $('s-bolsas');
@@ -917,7 +932,7 @@ function renderDiasPromo() {
 }
 
 function renderConfig() {
-  $('cfg-monto').value = formatoMiles(datos.config.montoHabitual);
+  $('cfg-monto').value = montoTexto(datos.config.montoHabitual);
   $('cfg-reservar').checked = !!datos.config.reservarBolsas;
   renderBotonesDias($('cfg-dias'), datos.config.diasHabituales, nuevos => {
     datos.config.diasHabituales = nuevos.sort();
@@ -1065,7 +1080,9 @@ $('form-carga').addEventListener('submit', e => {
   e.preventDefault();
   const monto = montoCarga();
   const fecha = $('c-fecha').value;
-  if (!monto || !fecha) return;
+  // El monto esta en la tarjeta de arriba, fuera del form: se valida a mano.
+  if (!monto) { alert('Ingresá el monto de la carga.'); $('c-monto').focus(); return; }
+  if (!fecha) return;
 
   const c = {
     id: editandoCarga || ('c' + Date.now()),
@@ -1135,11 +1152,10 @@ $('form-promo').addEventListener('submit', e => {
 $('btn-cancelar-promo').addEventListener('click', limpiarFormPromo);
 
 $('cfg-monto').addEventListener('change', () => {
-  const monto = montoDe($('cfg-monto'));
-  if (!monto) { $('cfg-monto').value = formatoMiles(datos.config.montoHabitual); return; }
-  datos.config.montoHabitual = monto;
+  // Vacio = sin carga habitual: el monto de cada carga se escribe a mano.
+  datos.config.montoHabitual = montoDe($('cfg-monto'));
   guardar();
-  if (!editandoCarga) $('c-monto').value = formatoMiles(monto);
+  if (!editandoCarga) $('c-monto').value = montoTexto(datos.config.montoHabitual);
   renderTodo();
 });
 
@@ -1197,7 +1213,7 @@ function renderTodo() {
 $('fecha-actual').textContent =
   new Date().toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 $('c-fecha').value = hoyISO();
-$('c-monto').value = formatoMiles(datos.config.montoHabitual);
+$('c-monto').value = montoTexto(datos.config.montoHabitual);
 renderDiasPromo();
 renderTodo();
 

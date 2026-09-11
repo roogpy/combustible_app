@@ -22,9 +22,10 @@ funciona sin conexión.
 
 ## Cómo se usa
 
-1. **⛽ Cargar**: se elige la fecha y el monto (por defecto la carga habitual) y la app
-   ordena las promociones que corren ese día según el ahorro, teniendo en cuenta lo
-   que ya se usó de cada tope. La **recomendada** va arriba. Tocando una opción queda
+1. **⛽ Cargar**: se elige la fecha y el monto y la app ordena las promociones que
+   corren ese día según el ahorro, teniendo en cuenta lo que ya se usó de cada tope.
+   Sin monto muestra el porcentaje de cada una. Si en *Mi rutina* hay una carga
+   habitual, el monto arranca con ella (el campo es opcional y arranca vacío). La **recomendada** va arriba. Tocando una opción queda
    elegida en el formulario; se guarda la carga con emblema, nota y, si el banco
    devolvió otra cosa, el **reintegro real**, que reemplaza al calculado.
 2. **📅 Mes**: calendario con las cargas de cada día (verde = con promo, ámbar = sin
@@ -35,8 +36,8 @@ funciona sin conexión.
 3. **🗓 Semana**: plan de la semana día por día con la promo principal (★) y las
    alternativas, lo cargado cada día y las bolsas flexibles (Ueno) con su saldo.
 4. **💳 Promos**: alta y edición de promociones (tarjeta, emblemas, días, %, topes,
-   vigencia, prioridad), la rutina (carga habitual y días en que se carga) y los
-   respaldos.
+   vigencia, prioridad), la rutina (carga habitual opcional y días en que se carga) y
+   los respaldos.
 
 ## Cómo se calculan los topes
 
