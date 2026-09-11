@@ -66,6 +66,16 @@ Continental renovada para Petrobras y Copetrol) y con las dos cargas que el Exce
 tenía contabilizadas (GNB/Petrobras el 09/09 y Continental el 11/09). Todo se edita o
 se borra desde la app.
 
+Ueno Nivel 3 va con dos bolsas: **otros emblemas** con un tope de **75.000 de
+reintegro por semana**, y **Petropar** con una bolsa mensual de **300.000 de carga**
+(hasta 75.000 de reintegro). El Excel tomaba el tope de otros emblemas como de compra y
+le agregaba un tope mensual que no existe.
+
+Los datos guardados llevan una `version`. Cuando cambia una promo inicial, `migrar()`
+corrige los datos que ya estaban en el teléfono (y los respaldos viejos) al abrir la
+app. Solo toca las promos que siguen como venían: si ya las editaste, se respetan tus
+cambios.
+
 ## Correr localmente
 
 Tiene que servirse por HTTP (el service worker no arranca con `file://`):

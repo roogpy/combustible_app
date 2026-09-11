@@ -24,7 +24,15 @@ const DIAS_SEMANA = [
 ];
 const TODOS_LOS_DIAS = [0, 1, 2, 3, 4, 5, 6];
 
-const NOTA_UENO = 'Niveles Ueno: N1 10%/25k · N2 15%/50k · N3 25%/75k · N4 30%/125k · N5 40%/150k. ' +
+// Version del formato de datos: las correcciones a promos ya guardadas en el
+// telefono van en migrar().
+const VERSION_DATOS = 2;
+
+const NIVELES_UENO = 'Niveles Ueno (reintegro máximo): N1 10%/25k · N2 15%/50k · N3 25%/75k · N4 30%/125k · N5 40%/150k.';
+const NOTA_UENO_OTROS = 'Tope de 75.000 de reintegro por semana (Nivel 3). ' + NIVELES_UENO;
+const NOTA_UENO_PETROPAR = 'Bolsa mensual de 300.000 de carga al 25% (hasta 75.000 de reintegro).';
+// Nota de la version 1, cuando no se sabia si el tope era de compra o de reintegro.
+const NOTA_UENO_V1 = 'Niveles Ueno: N1 10%/25k · N2 15%/50k · N3 25%/75k · N4 30%/125k · N5 40%/150k. ' +
   'Confirmar si el tope de 75.000 es de compra o de reintegro: cambia cuánto rinde la bolsa.';
 
 // Promociones del contador de septiembre 2026 (Excel armado con ChatGPT),
@@ -55,10 +63,10 @@ const PROMOS_INICIALES = [
     nota: 'Renovada (confirmado el 11/09/2026). El tope semanal de 500.000 era el registrado para Petrobras: confirmar si aplica igual en Copetrol y si es compartido.' },
   { id: 'ueno-petropar', nombre: 'Ueno N3 / Petropar', tarjeta: 'Ueno Nivel 3', emblemas: 'Petropar',
     dias: TODOS_LOS_DIAS.slice(), pct: 25, topeSemanal: 0, topeMensual: 300000, tipoTope: 'compra',
-    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO },
+    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO_PETROPAR },
   { id: 'ueno-otros', nombre: 'Ueno N3 / otros emblemas', tarjeta: 'Ueno Nivel 3', emblemas: 'Copetrol / ENEX / Petrobras / Petrochaco / Petromax / Puma',
-    dias: TODOS_LOS_DIAS.slice(), pct: 25, topeSemanal: 75000, topeMensual: 300000, tipoTope: 'compra',
-    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO },
+    dias: TODOS_LOS_DIAS.slice(), pct: 25, topeSemanal: 75000, topeMensual: 0, tipoTope: 'reintegro',
+    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO_OTROS },
 ];
 
 // Las dos cargas que el Excel ya tenia contabilizadas (sin fecha: se asumen
@@ -76,6 +84,7 @@ const CONFIG_INICIAL = { montoHabitual: 0, diasHabituales: [1, 3, 5], reservarBo
 
 function datosIniciales() {
   return {
+    version: VERSION_DATOS,
     promos: PROMOS_INICIALES.map(p => Object.assign({}, p, { dias: p.dias.slice() })),
     cargas: CARGAS_INICIALES.map(c => Object.assign({}, c)),
     config: Object.assign({}, CONFIG_INICIAL, { diasHabituales: CONFIG_INICIAL.diasHabituales.slice() }),
@@ -84,21 +93,40 @@ function datosIniciales() {
 
 function normalizar(d) {
   return {
+    version: d.version || 1,
     promos: d.promos,
     cargas: Array.isArray(d.cargas) ? d.cargas : [],
     config: Object.assign({}, CONFIG_INICIAL, d.config || {}),
   };
 }
 
+// Corrige las promos iniciales en datos guardados con una version anterior
+// (el telefono, un respaldo viejo). Solo toca una promo si sigue exactamente
+// como venia: si el usuario ya la edito, mandan sus cambios.
+function migrar(d) {
+  if (d.version < 2) {
+    // v2: el tope de Ueno Nivel 3 en los demas emblemas es de 75.000 de
+    // REINTEGRO por semana; el Excel lo tomaba como compra y le sumaba un tope
+    // mensual que no existe. Petropar sigue con su bolsa mensual de 300.000.
+    const otros = d.promos.find(p => p.id === 'ueno-otros');
+    if (otros && otros.tipoTope === 'compra' && Number(otros.topeSemanal) === 75000 && Number(otros.topeMensual) === 300000) {
+      Object.assign(otros, { tipoTope: 'reintegro', topeMensual: 0 });
+      if (otros.nota === NOTA_UENO_V1) otros.nota = NOTA_UENO_OTROS;
+    }
+    const petropar = d.promos.find(p => p.id === 'ueno-petropar');
+    if (petropar && petropar.nota === NOTA_UENO_V1) petropar.nota = NOTA_UENO_PETROPAR;
+  }
+  d.version = VERSION_DATOS;
+  return d;
+}
+
 let datos = null;
 try {
   const guardado = JSON.parse(localStorage.getItem(STORE_KEY));
-  if (guardado && Array.isArray(guardado.promos)) datos = normalizar(guardado);
+  if (guardado && Array.isArray(guardado.promos)) datos = migrar(normalizar(guardado));
 } catch (e) { /* datos corruptos: se arranca con los iniciales */ }
-if (!datos) {
-  datos = datosIniciales();
-  guardar();
-}
+if (!datos) datos = datosIniciales();
+guardar();
 
 function guardar() {
   localStorage.setItem(STORE_KEY, JSON.stringify(datos));
@@ -1185,7 +1213,7 @@ $('archivo-import').addEventListener('change', e => {
       const nuevo = JSON.parse(lector.result);
       if (!nuevo || !Array.isArray(nuevo.promos)) throw new Error('formato');
       if (!confirm('Esto reemplaza los datos actuales por los del respaldo. ¿Seguir?')) return;
-      datos = normalizar(nuevo);
+      datos = migrar(normalizar(nuevo));
       guardar();
       limpiarFormCarga();
       limpiarFormPromo();
