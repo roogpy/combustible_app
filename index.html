@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Combustibles</title>
+<meta name="theme-color" content="#101828">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="encabezado">
+  <h1>⛽ Combustibles</h1>
+  <p id="fecha-actual"></p>
+</header>
+
+<main>
+  <!-- TAB CARGAR -->
+  <section id="tab-cargar" class="tab activa">
+    <div class="tarjetas-mini">
+      <div class="mini neto"><span>Ahorro del mes</span><strong id="c-ahorro-mes">₲ 0</strong></div>
+      <div class="mini"><span>Cargado del mes</span><strong id="c-cargado-mes">₲ 0</strong></div>
+      <div class="mini"><span>Ueno libre</span><strong id="c-ueno-libre">₲ 0</strong></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>¿Dónde cargo?</h2>
+      <div class="fila">
+        <label>Fecha <input type="date" id="c-fecha" required></label>
+        <label>Monto (₲) <input type="text" id="c-monto" inputmode="numeric" autocomplete="off" placeholder="150.000"></label>
+      </div>
+      <p class="vacio nota" id="c-dia-legible"></p>
+      <ul id="c-opciones" class="opciones"></ul>
+      <p class="vacio" id="c-regla"></p>
+    </div>
+
+    <form id="form-carga" class="tarjeta">
+      <h2 id="carga-titulo">➕ Registrar carga</h2>
+      <label>Promoción
+        <select id="c-promo"></select>
+      </label>
+      <div class="fila espacio-arriba">
+        <label>Emblema <input type="text" id="c-emblema" list="c-emblemas" maxlength="40" placeholder="Petrobras"></label>
+        <label>Reintegro real (₲) <input type="text" id="c-reintegro" inputmode="numeric" autocomplete="off" placeholder="automático"></label>
+      </div>
+      <datalist id="c-emblemas"></datalist>
+      <label>Nota <input type="text" id="c-nota" maxlength="60" placeholder="opcional"></label>
+      <p class="estimado" id="c-estimado"></p>
+      <div class="fila">
+        <button type="submit" class="btn verde">Guardar carga</button>
+        <button type="button" id="btn-cancelar-carga" class="btn gris" hidden>Cancelar</button>
+      </div>
+    </form>
+
+    <div class="tarjeta">
+      <h2>Últimas cargas</h2>
+      <ul id="c-ultimas" class="lista"></ul>
+    </div>
+  </section>
+
+  <!-- TAB MES -->
+  <section id="tab-mes" class="tab">
+    <div class="tarjeta">
+      <div class="nav-mes">
+        <button id="mes-prev" class="flecha" type="button" aria-label="Mes anterior">‹</button>
+        <span id="mes-titulo"></span>
+        <button id="mes-next" class="flecha" type="button" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="tarjetas-mini sin-margen">
+        <div class="mini"><span>Cargado</span><strong id="m-cargado">₲ 0</strong></div>
+        <div class="mini neto"><span>Ahorro</span><strong id="m-ahorro">₲ 0</strong></div>
+        <div class="mini"><span>Ahorro efectivo</span><strong id="m-pct">0%</strong></div>
+      </div>
+
+      <div class="calendario espacio-arriba" id="cal-dow"></div>
+      <div class="calendario" id="cal-grilla"></div>
+      <div class="leyenda">
+        <span><i class="lg con-promo"></i>Carga con promo</span>
+        <span><i class="lg sin-promo"></i>Sin promo</span>
+        <span><i class="lg plan"></i>Día de carga habitual</span>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Bolsas de cada promoción</h2>
+      <p class="vacio nota" id="m-nota-bolsas"></p>
+      <div id="m-bolsas"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="con-total"><span id="m-lista-titulo">Cargas del mes</span> <strong id="m-lista-total">₲ 0</strong></h2>
+      <ul id="m-cargas" class="lista"></ul>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Historial por mes</h2>
+      <div id="m-historial"></div>
+    </div>
+
+    <div class="fila derecha">
+      <button id="btn-csv" class="btn gris" type="button">⬇ Exportar CSV</button>
+    </div>
+  </section>
+
+  <!-- TAB SEMANA -->
+  <section id="tab-semana" class="tab">
+    <div class="tarjeta">
+      <div class="nav-mes">
+        <button id="sem-prev" class="flecha" type="button" aria-label="Semana anterior">‹</button>
+        <span id="sem-titulo"></span>
+        <button id="sem-next" class="flecha" type="button" aria-label="Semana siguiente">›</button>
+      </div>
+      <div class="tarjetas-mini sin-margen">
+        <div class="mini"><span>Plan de la semana</span><strong id="s-plan">₲ 0</strong></div>
+        <div class="mini neto"><span>Ahorro esperado</span><strong id="s-esperado">₲ 0</strong></div>
+        <div class="mini"><span>Ahorro real</span><strong id="s-real">₲ 0</strong></div>
+      </div>
+    </div>
+
+    <div id="s-dias"></div>
+
+    <div class="tarjeta">
+      <h2>🟡 Bolsas flexibles (cualquier día)</h2>
+      <ul id="s-bolsas" class="lista"></ul>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Regla de optimización</h2>
+      <p class="vacio">No usar una bolsa estratégica (Ueno) si desplaza una promoción de 20% que cubre la carga completa ese día. Las bolsas quedan para <strong>cargas adicionales</strong>, para <strong>reemplazar</strong> una promo que no se pudo usar o para cuando la promo del día ya llegó a su tope.</p>
+    </div>
+  </section>
+
+  <!-- TAB PROMOS -->
+  <section id="tab-promos" class="tab">
+    <div class="tarjeta">
+      <h2>Promociones cargadas</h2>
+      <ul id="lista-promos" class="lista"></ul>
+    </div>
+
+    <form id="form-promo" class="tarjeta">
+      <h2 id="promo-titulo">➕ Nueva promoción</h2>
+      <input type="hidden" id="p-id">
+      <div class="fila">
+        <label>Nombre <input type="text" id="p-nombre" maxlength="40" required placeholder="GNB / Petrobras"></label>
+        <label>Tarjeta / medio <input type="text" id="p-tarjeta" maxlength="60" placeholder="GNB Mastercard Clásica"></label>
+      </div>
+      <label>Emblemas (separados por /) <input type="text" id="p-emblemas" maxlength="80" placeholder="Petrobras / Copetrol"></label>
+      <label class="espacio-arriba">Días en que aplica</label>
+      <div class="dias-semana" id="p-dias"></div>
+      <div class="fila">
+        <label>Descuento (%) <input type="number" id="p-pct" min="1" max="100" step="1" required placeholder="20"></label>
+        <label>Prioridad
+          <select id="p-prioridad">
+            <option value="principal">Principal</option>
+            <option value="reserva">Reserva</option>
+            <option value="alternativa">Alternativa</option>
+            <option value="estrategica">Estratégica (bolsa)</option>
+          </select>
+        </label>
+      </div>
+      <div class="fila">
+        <label>Tope semanal (₲) <input type="text" id="p-tope-sem" inputmode="numeric" autocomplete="off" placeholder="sin tope"></label>
+        <label>Tope mensual (₲) <input type="text" id="p-tope-mes" inputmode="numeric" autocomplete="off" placeholder="sin tope"></label>
+      </div>
+      <label>Los topes son
+        <select id="p-tipo-tope">
+          <option value="compra">de compra (monto cargado)</option>
+          <option value="reintegro">de reintegro (descuento devuelto)</option>
+        </select>
+      </label>
+      <div class="fila espacio-arriba">
+        <label>Vigente desde <input type="date" id="p-desde"></label>
+        <label>Vigente hasta <input type="date" id="p-hasta"></label>
+      </div>
+      <label>Nota <input type="text" id="p-nota" maxlength="200" placeholder="condiciones, a confirmar…"></label>
+      <label class="check"><input type="checkbox" id="p-activa" checked> Activa</label>
+      <div class="fila">
+        <button type="submit" class="btn verde">Guardar promoción</button>
+        <button type="button" id="btn-cancelar-promo" class="btn gris" hidden>Cancelar</button>
+      </div>
+    </form>
+
+    <div class="tarjeta">
+      <h2>Mi rutina</h2>
+      <div class="fila">
+        <label>Carga habitual (₲) <input type="text" id="cfg-monto" inputmode="numeric" autocomplete="off" placeholder="150.000"></label>
+      </div>
+      <label>Días en que cargo</label>
+      <div class="dias-semana" id="cfg-dias"></div>
+      <label class="check"><input type="checkbox" id="cfg-reservar"> Reservar las bolsas estratégicas (Ueno) cuando la promo del día cubre la carga completa</label>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Copia de seguridad</h2>
+      <p class="vacio">Los datos viven en este dispositivo (localStorage). Descargá el respaldo antes de cambiar de teléfono o limpiar el navegador.</p>
+      <div class="fila">
+        <button id="btn-exportar" class="btn gris" type="button">⬇ Descargar respaldo</button>
+        <button id="btn-importar" class="btn gris" type="button">⬆ Restaurar respaldo</button>
+      </div>
+      <input type="file" id="archivo-import" accept="application/json" hidden>
+    </div>
+  </section>
+</main>
+
+<nav class="nav-inferior">
+  <button data-tab="cargar" class="activa" type="button">⛽<span>Cargar</span></button>
+  <button data-tab="mes" type="button">📅<span>Mes</span></button>
+  <button data-tab="semana" type="button">🗓<span>Semana</span></button>
+  <button data-tab="promos" type="button">💳<span>Promos</span></button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
