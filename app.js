@@ -695,7 +695,8 @@ function renderMes() {
   const t = totalesRango(inicio, fin, detalle);
   $('m-cargado').textContent = fmt(t.cargado);
   $('m-ahorro').textContent = fmt(t.ahorro);
-  $('m-pct').textContent = t.cargado ? fmtPct(t.ahorro / t.cargado) : '—';
+  // Lo cargado menos los reintegros: lo que realmente costo el combustible.
+  $('m-neto').textContent = fmt(t.cargado - t.ahorro);
 
   // Calendario
   const dow = $('cal-dow');
