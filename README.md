@@ -13,8 +13,9 @@ funciona sin conexión.
 
 | Archivo | Qué hace |
 | --- | --- |
-| `index.html` | Estructura: tabs Cargar / Mes / Semana / Promos y barra inferior |
+| `index.html` | Estructura: tabs Cargar / Mes / Semana / Estaciones / Promos y barra inferior |
 | `app.js` | Modelo (promos, cargas, topes) y render, sin frameworks |
+| `estaciones.js` | Estaciones adheridas de cada promo (ciudad, nombre, dirección), transcriptas de los folletos |
 | `styles.css` | Tema oscuro, tarjetas, calendario, barras de cada bolsa |
 | `manifest.json` | Metadatos de la PWA |
 | `sw.js` | Service worker: código network-first, resto cache-first |
@@ -25,7 +26,8 @@ funciona sin conexión.
 1. **⛽ Cargar**: se elige la fecha y el monto y la app ordena las promociones que
    corren ese día según el ahorro, teniendo en cuenta lo que ya se usó de cada tope.
    Sin monto muestra el porcentaje de cada una. Si en *Mi rutina* hay una carga
-   habitual, el monto arranca con ella (el campo es opcional y arranca vacío). La **recomendada** va arriba. Tocando una opción queda
+   habitual, el monto arranca con ella (el campo es opcional y arranca vacío). La **recomendada** (mayor
+   ahorro) va arriba y cada opción tiene *📍 Ver estaciones*. Tocando una opción queda
    elegida en el formulario; se guarda la carga con emblema, nota y, si el banco
    devolvió otra cosa, el **reintegro real**, que reemplaza al calculado.
 2. **📅 Mes**: calendario con las cargas de cada día (verde = con promo, ámbar = sin
@@ -34,10 +36,14 @@ funciona sin conexión.
    que **queda** por aprovechar desde hoy (en meses cerrados: lo que quedó *sin usar*).
    Después vienen la lista de cargas y el historial mes a mes.
 3. **🗓 Semana**: plan de la semana día por día con la promo principal (★) y las
-   alternativas, lo cargado cada día y las bolsas flexibles (Ueno) con su saldo.
-4. **💳 Promos**: alta y edición de promociones (tarjeta, emblemas, días, %, topes,
-   vigencia, prioridad), la rutina (carga habitual opcional y días en que se carga) y
-   los respaldos.
+   alternativas y lo cargado cada día.
+4. **📍 Estaciones**: se elige el emblema (Petrochaco, Copetrol, Shell…) y se ven sus
+   promos (días, tarjeta, tope que queda, próximo día) y las estaciones adheridas a cada
+   una, filtradas por ciudad (se recuerda) o por texto, con enlace a Google Maps. Si una
+   promo no tiene lista cargada, se ofrece buscar el emblema en el mapa.
+5. **💳 Promos**: alta y edición de promociones (tarjeta, emblemas, días, %, topes,
+   vigencia, prioridad, grupo de tope compartido), la rutina (carga habitual opcional y
+   días en que se carga) y los respaldos.
 
 ## Cómo se calculan los topes
 
@@ -51,30 +57,25 @@ funciona sin conexión.
   reacomoda solas las siguientes.
 - Una carga con **reintegro real** cargado a mano cuenta ese valor, tanto para el
   ahorro como para consumir el tope.
-
-## Regla de optimización
-
-Las promos con prioridad **Estratégica** (las bolsas de Ueno) no se recomiendan si la
-promo del día cubre la carga completa: quedan para cargas adicionales, reemplazos o
-para cuando la promo del día llegó a su tope. Se desactiva en *Promos → Mi rutina* y
-entonces se recomienda siempre el mayor ahorro.
+- Las promos con el mismo **grupo de tope** comparten el contador. Es el caso de FPJ:
+  el tope de 200.000 de reintegro por mes es por rubro, así que Petrosur, Petrochaco y
+  Copetrol FPJ descuentan de la misma bolsa.
 
 ## Datos iniciales
 
-En el primer uso la app arranca con las promociones del Excel de septiembre 2026 (más
-Continental renovada para Petrobras y Copetrol) y con las dos cargas que el Excel ya
-tenía contabilizadas (GNB/Petrobras el 09/09 y Continental el 11/09). Todo se edita o
-se borra desde la app.
+En el primer uso la app arranca con las promociones de noviembre 2026: GNB, Itaú/Shell
+(lunes 20%, miércoles Personal Bank pausada, jueves V-Power), FPJ miércoles (Petrosur,
+Petrochaco, Copetrol, tope compartido) y Continental viernes (Petrobras/Copetrol,
+Energy, Compasa, Petrochaco, Petromax). Todo se edita o se borra desde la app.
 
-Ueno Nivel 3 va con dos bolsas: **otros emblemas** con un tope de **75.000 de
-reintegro por semana**, y **Petropar** con una bolsa mensual de **300.000 de carga**
-(hasta 75.000 de reintegro). El Excel tomaba el tope de otros emblemas como de compra y
-le agregaba un tope mensual que no existe.
+Los datos guardados llevan una `version`. Cuando cambian las promos iniciales,
+`migrar()` corrige los datos que ya estaban en el teléfono (y los respaldos viejos) al
+abrir la app:
 
-Los datos guardados llevan una `version`. Cuando cambia una promo inicial, `migrar()`
-corrige los datos que ya estaban en el teléfono (y los respaldos viejos) al abrir la
-app. Solo toca las promos que siguen como venían: si ya las editaste, se respetan tus
-cambios.
+- **v2**: tope de Ueno otros emblemas como reintegro semanal.
+- **v3**: se saca Ueno (el ahorro de las cargas hechas con Ueno queda fijo como
+  reintegro real, para no perder el historial) y se cargan las promos de noviembre
+  2026, pisando las versiones anteriores de Itaú/Shell y FPJ.
 
 ## Correr localmente
 

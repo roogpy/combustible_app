@@ -2,7 +2,8 @@
 // Un solo objeto en localStorage:
 //   promos -> cada promocion: tarjeta, emblemas, dias, %, topes y vigencia
 //   cargas -> cada carga de combustible: fecha, monto y promo usada
-//   config -> monto habitual por carga, dias en que se carga y la regla de Ueno
+//   config -> monto habitual por carga, dias en que se carga y ciudad de la
+//             pestana Estaciones (las estaciones viven en estaciones.js)
 // El ahorro de cada carga NO se guarda: se recalcula recorriendo las cargas en
 // orden de fecha, asi borrar o corregir una carga vieja reacomoda los topes de
 // las siguientes.
@@ -12,7 +13,6 @@ const PRIORIDADES = {
   principal: { etiqueta: 'Principal', orden: 0 },
   reserva: { etiqueta: 'Reserva', orden: 1 },
   alternativa: { etiqueta: 'Alternativa', orden: 2 },
-  estrategica: { etiqueta: 'Estratégica', orden: 3 },
 };
 
 // Orden lunes -> domingo, con el indice que devuelve Date.getDay().
@@ -26,22 +26,31 @@ const TODOS_LOS_DIAS = [0, 1, 2, 3, 4, 5, 6];
 
 // Version del formato de datos: las correcciones a promos ya guardadas en el
 // telefono van en migrar().
-const VERSION_DATOS = 2;
+const VERSION_DATOS = 3;
 
-const NIVELES_UENO = 'Niveles Ueno (reintegro máximo): N1 10%/25k · N2 15%/50k · N3 25%/75k · N4 30%/125k · N5 40%/150k.';
-const NOTA_UENO_OTROS = 'Tope de 75.000 de reintegro por semana (Nivel 3). ' + NIVELES_UENO;
-const NOTA_UENO_PETROPAR = 'Bolsa mensual de 300.000 de carga al 25% (hasta 75.000 de reintegro).';
-// Nota de la version 1, cuando no se sabia si el tope era de compra o de reintegro.
-const NOTA_UENO_V1 = 'Niveles Ueno: N1 10%/25k · N2 15%/50k · N3 25%/75k · N4 30%/125k · N5 40%/150k. ' +
-  'Confirmar si el tope de 75.000 es de compra o de reintegro: cambia cuánto rinde la bolsa.';
+const FPJ_GRUPO = 'fpj-combustible';
+const NOTA_FPJ = 'Tope de reintegro mensual por rubro y cuenta: 200.000 en Clásica/Oro, compartido entre ' +
+  'Petrosur, Petrochaco y Copetrol FPJ (Black: +5% y 250.000). POS Bancard. No acumulable.';
+const NOTA_CONT = 'Tope semanal de compra por cuenta de tarjeta, en conjunto para todas las estaciones del emblema. ' +
+  'Solo compras presenciales con POS Dinelco (no app ni POS virtual).';
 
-// Promociones del contador de septiembre 2026 (Excel armado con ChatGPT),
-// con la promo de Continental renovada para Petrobras y Copetrol.
+// Promociones vigentes en noviembre 2026. Las de FPJ comparten un mismo tope
+// mensual (grupoTope): lo que se usa en una lo descuenta de las otras.
 const PROMOS_INICIALES = [
-  { id: 'itau-shell', nombre: 'Itaú / Shell', tarjeta: 'TC Itaú', emblemas: 'Shell',
-    dias: [1], pct: 20, topeSemanal: 0, topeMensual: 0, tipoTope: 'compra',
-    desde: '', hasta: '2026-09-30', prioridad: 'principal', activa: true,
-    nota: 'Tope no registrado: confirmalo con Itaú.' },
+  { id: 'itau-shell', nombre: 'Itaú / Shell lunes', tarjeta: 'TC Itaú Clásica + POS Bancard', emblemas: 'Shell',
+    dias: [1], pct: 20, topeSemanal: 0, topeMensual: 150000, tipoTope: 'compra',
+    desde: '2026-02-23', hasta: '2026-12-31', prioridad: 'principal', activa: true,
+    nota: 'Tope mensual de compra por cliente (titular + adicionales): Clásica 150.000, Oro/Premium 500.000. ' +
+      'No aplica a Personal Bank. No acumulable. Si tu tarjeta es Oro o Premium, subí el tope.' },
+  { id: 'itau-shell-pb', nombre: 'Itaú PB / Shell miércoles', tarjeta: 'TC Itaú Personal Bank + POS Bancard', emblemas: 'Shell',
+    dias: [3], pct: 25, topeSemanal: 0, topeMensual: 1200000, tipoTope: 'compra',
+    desde: '2026-02-23', hasta: '2026-12-31', prioridad: 'alternativa', activa: false,
+    nota: 'Solo Personal Bank (Amex Platinum y Visa Infinite). Activala si tenés esa tarjeta.' },
+  { id: 'itau-vpower', nombre: 'Itaú / Shell V-Power jueves', tarjeta: 'TC Itaú (todas)', emblemas: 'Shell',
+    dias: [4], pct: 25, topeSemanal: 300000, topeMensual: 0, tipoTope: 'compra',
+    desde: '2026-10-29', hasta: '2026-11-26', prioridad: 'principal', activa: true,
+    nota: 'Solo Shell V-Power. Tope de carga por jueves: Clásica 300.000, Oro/Personal Bank 500.000. ' +
+      'No descuenta de los topes de lunes y miércoles. Cupones x5.' },
   { id: 'gnb-copetrol', nombre: 'GNB / Copetrol', tarjeta: 'GNB Mastercard Clásica + QR Copetrol Vamos', emblemas: 'Copetrol',
     dias: [1], pct: 20, topeSemanal: 0, topeMensual: 1000000, tipoTope: 'compra',
     desde: '2026-07-06', hasta: '2026-12-28', prioridad: 'reserva', activa: true, nota: '' },
@@ -51,9 +60,16 @@ const PROMOS_INICIALES = [
   { id: 'gnb-petrobras', nombre: 'GNB / Petrobras', tarjeta: 'GNB Mastercard Clásica + app Premmia', emblemas: 'Petrobras',
     dias: [3], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
     desde: '2026-07-01', hasta: '2026-12-30', prioridad: 'principal', activa: true, nota: '' },
-  { id: 'fpj-petrosur', nombre: 'FPJ Clásica / Petrosur-Petrochaco', tarjeta: 'FPJ Clásica + POS Bancard', emblemas: 'Petrosur / Petrochaco',
-    dias: [3], pct: 20, topeSemanal: 0, topeMensual: 200000, tipoTope: 'compra',
-    desde: '', hasta: '2026-12-31', prioridad: 'alternativa', activa: true, nota: 'No acumulable.' },
+  { id: 'fpj-petrosur', nombre: 'FPJ / Petrosur', tarjeta: 'FPJ Clásica + POS Bancard', emblemas: 'Petrosur',
+    dias: [3], pct: 20, topeSemanal: 0, topeMensual: 200000, tipoTope: 'reintegro', grupoTope: FPJ_GRUPO,
+    desde: '', hasta: '2026-12-31', prioridad: 'alternativa', activa: true,
+    nota: NOTA_FPJ + ' No aplica pagando por la app de Petrosur.' },
+  { id: 'fpj-petrochaco', nombre: 'FPJ / Petrochaco', tarjeta: 'FPJ Clásica + POS Bancard', emblemas: 'Petrochaco',
+    dias: [3], pct: 20, topeSemanal: 0, topeMensual: 200000, tipoTope: 'reintegro', grupoTope: FPJ_GRUPO,
+    desde: '', hasta: '2026-12-31', prioridad: 'alternativa', activa: true, nota: NOTA_FPJ },
+  { id: 'fpj-copetrol', nombre: 'FPJ / Copetrol', tarjeta: 'FPJ Clásica + POS Bancard', emblemas: 'Copetrol',
+    dias: [3], pct: 20, topeSemanal: 0, topeMensual: 200000, tipoTope: 'reintegro', grupoTope: FPJ_GRUPO,
+    desde: '2026-10-07', hasta: '2027-12-31', prioridad: 'alternativa', activa: true, nota: NOTA_FPJ },
   { id: 'gnb-petrosur', nombre: 'GNB / Petrosur', tarjeta: 'GNB Mastercard Clásica + app Petrosur', emblemas: 'Petrosur',
     dias: [5], pct: 20, topeSemanal: 0, topeMensual: 1000000, tipoTope: 'compra',
     desde: '2026-05-01', hasta: '2026-12-25', prioridad: 'reserva', activa: true, nota: '' },
@@ -61,13 +77,25 @@ const PROMOS_INICIALES = [
     dias: [5], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
     desde: '', hasta: '', prioridad: 'principal', activa: true,
     nota: 'Renovada (confirmado el 11/09/2026). El tope semanal de 500.000 era el registrado para Petrobras: confirmar si aplica igual en Copetrol y si es compartido.' },
-  { id: 'ueno-petropar', nombre: 'Ueno N3 / Petropar', tarjeta: 'Ueno Nivel 3', emblemas: 'Petropar',
-    dias: TODOS_LOS_DIAS.slice(), pct: 25, topeSemanal: 0, topeMensual: 300000, tipoTope: 'compra',
-    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO_PETROPAR },
-  { id: 'ueno-otros', nombre: 'Ueno N3 / otros emblemas', tarjeta: 'Ueno Nivel 3', emblemas: 'Copetrol / ENEX / Petrobras / Petrochaco / Petromax / Puma',
-    dias: TODOS_LOS_DIAS.slice(), pct: 25, topeSemanal: 75000, topeMensual: 0, tipoTope: 'reintegro',
-    desde: '', hasta: '', prioridad: 'estrategica', activa: true, nota: NOTA_UENO_OTROS },
+  { id: 'cont-energy', nombre: 'Continental / Energy', tarjeta: 'TC Continental (Dinelco, Clásica, Oro) + POS Dinelco', emblemas: 'Energy',
+    dias: [5], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
+    desde: '', hasta: '2027-03-06', prioridad: 'alternativa', activa: true, nota: NOTA_CONT },
+  { id: 'cont-compasa', nombre: 'Continental / Compasa', tarjeta: 'TC Continental + POS Dinelco', emblemas: 'Compasa',
+    dias: [5], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
+    desde: '', hasta: '2027-09-17', prioridad: 'alternativa', activa: true, nota: NOTA_CONT },
+  { id: 'cont-petrochaco', nombre: 'Continental / Petrochaco', tarjeta: 'TC Continental + POS Dinelco', emblemas: 'Petrochaco',
+    dias: [5], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
+    desde: '', hasta: '2026-11-20', prioridad: 'alternativa', activa: true, nota: NOTA_CONT },
+  { id: 'cont-petromax', nombre: 'Continental / Petromax', tarjeta: 'TC Continental + POS Dinelco', emblemas: 'Petromax',
+    dias: [5], pct: 20, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
+    desde: '', hasta: '2027-10-01', prioridad: 'alternativa', activa: true,
+    nota: NOTA_CONT + ' No acumulable. No participan prepagas, Gourmet Card ni Cabal.' },
 ];
+
+// Promos que la version 3 agrega o reemplaza en los datos ya guardados.
+const IDS_V3 = ['itau-shell', 'itau-shell-pb', 'itau-vpower', 'fpj-petrosur', 'fpj-petrochaco', 'fpj-copetrol',
+  'cont-energy', 'cont-compasa', 'cont-petrochaco', 'cont-petromax'];
+const IDS_UENO = ['ueno-petropar', 'ueno-otros'];
 
 // Las dos cargas que el Excel ya tenia contabilizadas (sin fecha: se asumen
 // las de esta semana).
@@ -80,7 +108,7 @@ const CARGAS_INICIALES = [
 
 // La carga habitual arranca vacia: es opcional y solo sirve para precargar el
 // monto y armar el plan de la semana.
-const CONFIG_INICIAL = { montoHabitual: 0, diasHabituales: [1, 3, 5], reservarBolsas: true };
+const CONFIG_INICIAL = { montoHabitual: 0, diasHabituales: [1, 3, 5], ciudadEstaciones: '' };
 
 function datosIniciales() {
   return {
@@ -104,17 +132,35 @@ function normalizar(d) {
 // (el telefono, un respaldo viejo). Solo toca una promo si sigue exactamente
 // como venia: si el usuario ya la edito, mandan sus cambios.
 function migrar(d) {
-  if (d.version < 2) {
-    // v2: el tope de Ueno Nivel 3 en los demas emblemas es de 75.000 de
-    // REINTEGRO por semana; el Excel lo tomaba como compra y le sumaba un tope
-    // mensual que no existe. Petropar sigue con su bolsa mensual de 300.000.
-    const otros = d.promos.find(p => p.id === 'ueno-otros');
-    if (otros && otros.tipoTope === 'compra' && Number(otros.topeSemanal) === 75000 && Number(otros.topeMensual) === 300000) {
-      Object.assign(otros, { tipoTope: 'reintegro', topeMensual: 0 });
-      if (otros.nota === NOTA_UENO_V1) otros.nota = NOTA_UENO_OTROS;
-    }
-    const petropar = d.promos.find(p => p.id === 'ueno-petropar');
-    if (petropar && petropar.nota === NOTA_UENO_V1) petropar.nota = NOTA_UENO_PETROPAR;
+  if (d.version < 3) {
+    // v3: se saca Ueno y se cargan las promos de noviembre 2026 (Itaú/Shell,
+    // FPJ con tope compartido, Continental viernes por emblema). Pedido
+    // explicito: las promos de IDS_V3 se pisan aunque se hayan editado.
+    //
+    // Antes de borrar Ueno, su ahorro queda fijo como reintegro real en cada
+    // carga, para no perder el historial.
+    const previo = datos;
+    datos = d;
+    const { detalle } = calcular();
+    datos = previo;
+    d.cargas.forEach(c => {
+      if (!IDS_UENO.includes(c.promoId)) return;
+      if (c.reintegro == null || c.reintegro === '') c.reintegro = detalle[c.id] ? detalle[c.id].ahorro : 0;
+      c.nota = c.nota ? 'Ueno · ' + c.nota : 'Ueno';
+    });
+    d.promos = d.promos.filter(p => !IDS_UENO.includes(p.id));
+
+    IDS_V3.forEach(id => {
+      const nueva = Object.assign({}, PROMOS_INICIALES.find(p => p.id === id));
+      nueva.dias = nueva.dias.slice();
+      const i = d.promos.findIndex(p => p.id === id);
+      if (i >= 0) d.promos[i] = nueva; else d.promos.push(nueva);
+    });
+
+    // Sin Ueno ya no hay "bolsas estrategicas": las que el usuario haya
+    // creado con esa prioridad pasan a Alternativa.
+    d.promos.forEach(p => { if (!PRIORIDADES[p.prioridad]) p.prioridad = 'alternativa'; });
+    delete d.config.reservarBolsas;
   }
   d.version = VERSION_DATOS;
   return d;
@@ -260,7 +306,13 @@ function promoPorId(id) { return datos.promos.find(p => p.id === id) || null; }
 
 function pctDe(p) { return (Number(p.pct) || 0) / 100; }
 
-function esBolsa(p) { return p.prioridad === 'estrategica'; }
+// Promos con el mismo grupoTope comparten el contador de uso (FPJ: un tope
+// mensual por rubro para Petrosur, Petrochaco y Copetrol).
+function claveUso(p) { return p.grupoTope || p.id; }
+
+function companerosDeTope(p) {
+  return p.grupoTope ? datos.promos.filter(x => x.id !== p.id && x.grupoTope === p.grupoTope) : [];
+}
 
 function vigente(p, iso) { return (!p.desde || iso >= p.desde) && (!p.hasta || iso <= p.hasta); }
 
@@ -305,15 +357,16 @@ function estadoVigencia(p) {
 function ordenCargas(a, b) { return a.fecha.localeCompare(b.fecha) || String(a.id).localeCompare(String(b.id)); }
 
 function espacioLibre(p, iso, uso) {
-  const u = uso[p.id] || { sem: {}, mes: {} };
+  const u = uso[claveUso(p)] || { sem: {}, mes: {} };
   const sem = topeAhorro(p, p.topeSemanal) - (u.sem[lunesDe(iso)] || 0);
   const mes = topeAhorro(p, p.topeMensual) - (u.mes[claveMes(iso)] || 0);
   return Math.max(0, Math.min(sem, mes));
 }
 
 function consumir(p, iso, uso, ahorro) {
-  if (!uso[p.id]) uso[p.id] = { sem: {}, mes: {} };
-  const u = uso[p.id];
+  const k = claveUso(p);
+  if (!uso[k]) uso[k] = { sem: {}, mes: {} };
+  const u = uso[k];
   const s = lunesDe(iso), m = claveMes(iso);
   u.sem[s] = (u.sem[s] || 0) + ahorro;
   u.mes[m] = (u.mes[m] || 0) + ahorro;
@@ -329,11 +382,15 @@ function calcular(excluirId) {
   datos.cargas.slice().sort(ordenCargas).forEach(c => {
     if (c.id === excluirId) return;
     const p = promoPorId(c.promoId);
+    const manual = c.reintegro != null && c.reintegro !== '';
     if (!p) {
-      detalle[c.id] = { ahorro: 0, teorico: 0, estado: c.promoId ? 'borrada' : 'sin' };
+      // Promo borrada (p. ej. Ueno): si la carga tiene el reintegro fijado,
+      // se sigue contando ese ahorro.
+      detalle[c.id] = manual
+        ? { ahorro: Number(c.reintegro), teorico: 0, manual, estado: 'manual' }
+        : { ahorro: 0, teorico: 0, estado: c.promoId ? 'borrada' : 'sin' };
       return;
     }
-    const manual = c.reintegro != null && c.reintegro !== '';
     const corre = correEnFecha(p, c.fecha);
     const teorico = Math.round(c.monto * pctDe(p));
     const ahorro = manual ? Number(c.reintegro) : corre ? Math.round(Math.min(teorico, espacioLibre(p, c.fecha, uso))) : 0;
@@ -365,16 +422,9 @@ function opcionesPara(fecha, monto, excluirId) {
   return { opciones, uso };
 }
 
-// La regla del contador: una bolsa estrategica (Ueno) no se gasta si la promo
-// del dia cubre la carga completa. Sin esa regla gana el mayor ahorro.
+// Gana el mayor ahorro (a igual ahorro, la de mejor prioridad: ya vienen ordenadas).
 function recomendada(opciones) {
-  const conAhorro = opciones.filter(o => (o.ahorro != null ? o.ahorro > 0 : o.conLugar));
-  if (!conAhorro.length) return null;
-  if (datos.config.reservarBolsas) {
-    const delDia = conAhorro.find(o => !esBolsa(o.p));
-    if (delDia && delDia.completo) return delDia;
-  }
-  return conAhorro[0];
+  return opciones.find(o => (o.ahorro != null ? o.ahorro > 0 : o.conLugar)) || null;
 }
 
 // El uso se lleva en reintegro; para mostrarlo se pasa a la unidad del tope.
@@ -384,7 +434,7 @@ function unidadTope(p) { return p.tipoTope === 'reintegro' ? ' de reintegro' : '
 
 // "semana: quedan ₲ 350.000 de compra", en la unidad en la que esta el tope.
 function textoTopes(p, fecha, uso) {
-  const u = uso[p.id] || { sem: {}, mes: {} };
+  const u = uso[claveUso(p)] || { sem: {}, mes: {} };
   const partes = [];
   if (Number(p.topeSemanal)) {
     partes.push('semana: quedan ' + fmt(Math.max(0, p.topeSemanal - enUnidad(p, u.sem[lunesDe(fecha)] || 0))));
@@ -393,7 +443,9 @@ function textoTopes(p, fecha, uso) {
     partes.push('mes: quedan ' + fmt(Math.max(0, p.topeMensual - enUnidad(p, u.mes[claveMes(fecha)] || 0))));
   }
   if (!partes.length) return 'sin tope registrado';
-  return partes.join(' · ') + unidadTope(p);
+  const comp = companerosDeTope(p);
+  return partes.join(' · ') + unidadTope(p) +
+    (comp.length ? ' (compartido con ' + comp.map(x => emblemasDe(x).join('/')).join(', ') + ')' : '');
 }
 
 // Lo que la promo todavia puede devolver en el mes `clave`, contando solo los
@@ -405,7 +457,7 @@ function potencial(p, clave, uso, desde) {
     if (iso >= desde && correEnFecha(p, iso)) semanas.add(lunesDe(iso));
   }
   if (!semanas.size) return 0;
-  const u = uso[p.id] || { sem: {}, mes: {} };
+  const u = uso[claveUso(p)] || { sem: {}, mes: {} };
   const tSem = topeAhorro(p, p.topeSemanal);
   let total = Infinity;
   if (tSem !== Infinity) {
@@ -425,17 +477,6 @@ function totalesRango(desde, hasta, detalle) {
     t.cargas++;
   });
   return t;
-}
-
-// Reintegro que todavia pueden dar las bolsas estrategicas en el mes en curso.
-function uenoLibre(uso) {
-  const hoy = hoyISO();
-  return datos.promos
-    .filter(p => esBolsa(p) && p.activa !== false)
-    .reduce((s, p) => {
-      const v = potencial(p, claveMes(hoy), uso, hoy);
-      return s + (v === Infinity ? 0 : v);
-    }, 0);
 }
 
 // ---------- Estado de la UI ----------
@@ -461,7 +502,7 @@ function renderCargar() {
   const t = totalesRango(mes + '-01', finDeMes(mes), detalle);
   $('c-ahorro-mes').textContent = fmt(t.ahorro);
   $('c-cargado-mes').textContent = fmt(t.cargado);
-  $('c-ueno-libre').textContent = fmt(uenoLibre(uso));
+  $('c-promos-hoy').textContent = String(datos.promos.filter(p => disponible(p, hoy)).length);
 
   renderOpciones();
   renderUltimas(detalle);
@@ -472,7 +513,6 @@ function renderOpciones() {
   const monto = montoCarga();
   const { opciones, uso } = opcionesPara(fecha, monto, editandoCarga);
   const rec = recomendada(opciones);
-  // La recomendada va arriba aunque una bolsa reservada devuelva mas.
   const enPantalla = rec ? [rec].concat(opciones.filter(o => o !== rec)) : opciones;
 
   const habitual = datos.config.diasHabituales.includes(aFecha(fecha).getDay());
@@ -501,11 +541,12 @@ function renderOpciones() {
     } else if (!o.completo) {
       det.appendChild(el('small', 'aviso', 'Llega al tope: descuenta solo ' + fmt(o.ahorro / pctDe(o.p)) + ' de la carga.'));
     }
-    if (esBolsa(o.p) && o !== rec && datos.config.reservarBolsas && o.conLugar) {
-      det.appendChild(el('small', 'aviso-suave', 'Bolsa estratégica: mejor guardarla para una carga adicional.'));
-    }
     const vig = estadoVigencia(o.p);
     if (vig.clase === 'vence') det.appendChild(el('small', 'aviso', vig.texto));
+    const ver = el('button', 'enlace ver-estaciones', '📍 Ver estaciones');
+    ver.type = 'button';
+    ver.dataset.emblema = emblemasDe(o.p)[0] || '';
+    det.appendChild(ver);
 
     const der = el('div', 'opcion-monto');
     der.appendChild(el('strong', null, monto ? fmt(o.ahorro) : o.p.pct + '%'));
@@ -514,10 +555,6 @@ function renderOpciones() {
     li.append(det, der);
     lista.appendChild(li);
   });
-
-  $('c-regla').textContent = datos.config.reservarBolsas
-    ? 'Regla activa: Ueno se reserva cuando la promo del día cubre toda la carga (se cambia en Promos → Mi rutina).'
-    : 'Regla de reserva apagada: se recomienda siempre el mayor ahorro.';
 
   renderSelectPromo(opciones, rec);
 }
@@ -769,8 +806,14 @@ function renderBolsas(uso, detalle) {
     b.appendChild(datosB);
 
     if (semanaEnMes && Number(p.topeSemanal) && correEnSemana(p, lunesHoy)) {
-      const usado = enUnidad(p, (uso[p.id] && uso[p.id].sem[lunesHoy]) || 0);
+      const u = uso[claveUso(p)];
+      const usado = enUnidad(p, (u && u.sem[lunesHoy]) || 0);
       b.appendChild(el('small', null, 'Esta semana: ' + fmt(usado) + ' de ' + fmt(p.topeSemanal) + unidadTope(p)));
+    }
+    const comp = companerosDeTope(p);
+    if (comp.length) {
+      b.appendChild(el('small', null, 'Tope compartido con ' + comp.map(x => x.nombre).join(', ') +
+        ': el máximo y lo que queda son de todo el grupo.'));
     }
     const vig = estadoVigencia(p);
     if (vig.clase !== 'ok') b.appendChild(el('small', 'aviso', vig.texto));
@@ -858,7 +901,7 @@ function renderHistorial(detalle) {
 
 // ---------- Tab Semana ----------
 function renderSemana() {
-  const { uso, detalle } = calcular();
+  const { detalle } = calcular();
   const hoy = hoyISO();
   const domingo = sumarDias(semSel, 6);
   $('sem-titulo').textContent = 'Semana del ' + (claveMes(semSel) === claveMes(domingo)
@@ -873,10 +916,9 @@ function renderSemana() {
     const iso = sumarDias(semSel, i);
     const dow = aFecha(iso).getDay();
     const habitual = datos.config.diasHabituales.includes(dow);
-    // Promos del dia (sin las bolsas, que van en su propia tarjeta), la mejor
-    // primero: prioridad y despues porcentaje.
+    // Promos del dia, la mejor primero: prioridad y despues porcentaje.
     const delDia = datos.promos
-      .filter(p => !esBolsa(p) && disponible(p, iso))
+      .filter(p => disponible(p, iso))
       .sort((a, b) => ordenPrioridad(a) - ordenPrioridad(b) || b.pct - a.pct);
     const mejor = delDia[0] || null;
     if (habitual) {
@@ -893,7 +935,7 @@ function renderSemana() {
 
     const ul = el('ul', 'lista compacta');
     if (!delDia.length) {
-      ul.appendChild(el('li', 'vacio', 'Sin promo del día: solo las bolsas Ueno.'));
+      ul.appendChild(el('li', 'vacio', 'Sin promociones este día.'));
     }
     delDia.forEach((p, j) => {
       const li = el('li');
@@ -925,21 +967,6 @@ function renderSemana() {
   $('s-esperado').textContent = monto ? fmt(esperado) : '—';
   $('s-real').textContent = fmt(real);
 
-  const bolsas = $('s-bolsas');
-  bolsas.innerHTML = '';
-  const refFecha = hoy >= semSel && hoy <= domingo ? hoy : semSel;
-  const conBolsa = datos.promos.filter(p => esBolsa(p) && p.activa !== false);
-  if (!conBolsa.length) bolsas.appendChild(el('li', 'vacio', 'No hay bolsas estratégicas cargadas.'));
-  conBolsa.forEach(p => {
-    const li = el('li');
-    li.appendChild(el('span', 'chip prio-estrategica', p.pct + '%'));
-    const d = el('div', 'detalle');
-    d.appendChild(el('span', null, p.nombre));
-    d.appendChild(el('small', null, p.emblemas));
-    d.appendChild(el('small', null, textoTopes(p, refFecha, uso)));
-    li.appendChild(d);
-    bolsas.appendChild(li);
-  });
 }
 
 // ---------- Tab Promos ----------
@@ -961,7 +988,6 @@ function renderDiasPromo() {
 
 function renderConfig() {
   $('cfg-monto').value = montoTexto(datos.config.montoHabitual);
-  $('cfg-reservar').checked = !!datos.config.reservarBolsas;
   renderBotonesDias($('cfg-dias'), datos.config.diasHabituales, nuevos => {
     datos.config.diasHabituales = nuevos.sort();
     guardar();
@@ -1032,6 +1058,7 @@ function cargarPromoEnForm(p) {
   $('p-tope-sem').value = Number(p.topeSemanal) ? formatoMiles(p.topeSemanal) : '';
   $('p-tope-mes').value = Number(p.topeMensual) ? formatoMiles(p.topeMensual) : '';
   $('p-tipo-tope').value = p.tipoTope || 'compra';
+  $('p-grupo').value = p.grupoTope || '';
   $('p-desde').value = p.desde || '';
   $('p-hasta').value = p.hasta || '';
   $('p-nota').value = p.nota || '';
@@ -1050,6 +1077,144 @@ function limpiarFormPromo() {
   diasPromoForm = [1];
   renderDiasPromo();
   $('btn-cancelar-promo').hidden = true;
+}
+
+// ---------- Tab Estaciones ----------
+let emblemaSel = null;
+
+// Emblemas de las promos que no vencieron (incluye las pausadas: la info de
+// estaciones sirve igual).
+function emblemasConPromo() {
+  const hoy = hoyISO();
+  const set = new Set();
+  datos.promos.filter(p => !p.hasta || p.hasta >= hoy).forEach(p => emblemasDe(p).forEach(e => set.add(e)));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function promosDeEmblema(emblema) {
+  const hoy = hoyISO();
+  return datos.promos
+    .filter(p => (!p.hasta || p.hasta >= hoy) && emblemasDe(p).includes(emblema))
+    .sort((a, b) => (a.activa === false) - (b.activa === false) || primerDia(a) - primerDia(b) || ordenPrioridad(a) - ordenPrioridad(b));
+}
+
+function estacionesDe(p) { return (typeof ESTACIONES !== 'undefined' && ESTACIONES[p.id]) || null; }
+
+// Proxima fecha (desde hoy, hasta 6 semanas) en que la promo se puede usar.
+function proximoDia(p) {
+  let iso = hoyISO();
+  for (let i = 0; i < 42; i++, iso = sumarDias(iso, 1)) if (disponible(p, iso)) return iso;
+  return null;
+}
+
+function urlMapa(partes) {
+  return 'https://www.google.com/maps/search/?api=1&query=' +
+    encodeURIComponent(partes.filter(Boolean).concat('Paraguay').join(', '));
+}
+
+function sinTildes(s) { return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+function irAEstaciones(emblema) {
+  if (emblema) emblemaSel = emblema;
+  irATab('estaciones');
+  renderEstaciones();
+}
+
+function renderEstaciones() {
+  const emblemas = emblemasConPromo();
+  if (!emblemas.includes(emblemaSel)) emblemaSel = emblemas[0] || null;
+
+  const selE = $('e-emblema');
+  selE.innerHTML = '';
+  emblemas.forEach(e => selE.appendChild(new Option(e, e)));
+  if (emblemaSel) selE.value = emblemaSel;
+
+  const promos = emblemaSel ? promosDeEmblema(emblemaSel) : [];
+
+  // Ciudades de todas las listas del emblema; la elegida se recuerda.
+  const ciudades = new Set();
+  promos.forEach(p => (estacionesDe(p) || []).forEach(r => ciudades.add(r[0])));
+  const selC = $('e-ciudad');
+  selC.innerHTML = '';
+  selC.appendChild(new Option('Todas', ''));
+  Array.from(ciudades).sort((a, b) => a.localeCompare(b, 'es')).forEach(c => selC.appendChild(new Option(c, c)));
+  const ciudad = ciudades.has(datos.config.ciudadEstaciones) ? datos.config.ciudadEstaciones : '';
+  selC.value = ciudad;
+  const busca = sinTildes($('e-buscar').value.trim());
+
+  renderPromosEmblema(promos);
+
+  const caja = $('e-listas');
+  caja.innerHTML = '';
+  if (!emblemaSel) {
+    caja.appendChild(el('p', 'vacio', 'No hay promociones vigentes cargadas.'));
+    return;
+  }
+  promos.forEach(p => {
+    const t = el('div', 'tarjeta');
+    const filas = estacionesDe(p);
+    if (!filas) {
+      t.appendChild(el('h2', null, p.nombre));
+      t.appendChild(el('p', 'vacio', 'No hay lista de estaciones adheridas cargada para esta promo.'));
+      // Sin lista: busqueda del emblema en el mapa, en la ciudad guardada.
+      const ciudadMapa = ciudad || datos.config.ciudadEstaciones;
+      const a = el('a', 'btn gris', '📍 Buscar ' + emblemaSel + ' en ' + (ciudadMapa || 'el mapa'));
+      a.href = urlMapa([emblemaSel, ciudadMapa]);
+      a.target = '_blank';
+      a.rel = 'noopener';
+      t.appendChild(a);
+      caja.appendChild(t);
+      return;
+    }
+    const visibles = filas.filter(r => (!ciudad || r[0] === ciudad) &&
+      (!busca || sinTildes(r.join(' ')).includes(busca)));
+    const cab = el('h2', 'con-total');
+    cab.appendChild(el('span', null, p.nombre));
+    cab.appendChild(el('strong', null, visibles.length + (visibles.length === filas.length ? '' : ' de ' + filas.length)));
+    t.appendChild(cab);
+    if (ESTACIONES_INCOMPLETAS[p.id]) t.appendChild(el('p', 'vacio nota aviso', ESTACIONES_INCOMPLETAS[p.id]));
+
+    const ul = el('ul', 'lista compacta');
+    if (!visibles.length) ul.appendChild(el('li', 'vacio', 'Ninguna estación adherida' + (ciudad ? ' en ' + ciudad : '') + '.'));
+    visibles.forEach(([ciu, nombre, dir]) => {
+      const li = el('li');
+      const d = el('div', 'detalle');
+      d.appendChild(el('span', null, nombre || dir));
+      d.appendChild(el('small', null, (nombre ? dir + ' · ' : '') + ciu));
+      const a = el('a', 'btn-mapa', '📍 Mapa');
+      a.href = urlMapa([emblemaSel, dir, ciu]);
+      a.target = '_blank';
+      a.rel = 'noopener';
+      li.append(d, a);
+      ul.appendChild(li);
+    });
+    t.appendChild(ul);
+    caja.appendChild(t);
+  });
+}
+
+function renderPromosEmblema(promos) {
+  const ul = $('e-promos');
+  ul.innerHTML = '';
+  if (!promos.length) {
+    ul.appendChild(el('li', 'vacio', 'Sin promociones para este emblema.'));
+    return;
+  }
+  const { uso } = calcular();
+  promos.forEach(p => {
+    const vig = estadoVigencia(p);
+    const li = el('li', vig.clase === 'pausada' ? 'apagada' : '');
+    li.appendChild(el('span', 'chip prio-' + p.prioridad, p.pct + '%'));
+    const d = el('div', 'detalle');
+    d.appendChild(el('span', null, p.nombre));
+    d.appendChild(el('small', null, diasTexto(p) + ' · ' + p.tarjeta));
+    const prox = p.activa === false ? null : proximoDia(p);
+    d.appendChild(el('small', null, textoTopes(p, prox || hoyISO(), uso)));
+    if (prox) d.appendChild(el('small', null, 'Próximo día: ' + (prox === hoyISO() ? 'hoy' : fechaLegible(prox, false))));
+    d.appendChild(el('small', 'vig-' + vig.clase, vig.texto));
+    li.appendChild(d);
+    ul.appendChild(li);
+  });
 }
 
 // ---------- Exportar ----------
@@ -1087,6 +1252,8 @@ $('c-fecha').addEventListener('change', () => {
 $('c-monto').addEventListener('input', () => renderOpciones());
 
 $('c-opciones').addEventListener('click', e => {
+  const ver = e.target.closest('.ver-estaciones');
+  if (ver) { irAEstaciones(ver.dataset.emblema); return; }
   const li = e.target.closest('.opcion');
   if (!li) return;
   promoElegida = li.dataset.promo;
@@ -1162,6 +1329,7 @@ $('form-promo').addEventListener('submit', e => {
     topeSemanal: montoDe($('p-tope-sem')),
     topeMensual: montoDe($('p-tope-mes')),
     tipoTope: $('p-tipo-tope').value,
+    grupoTope: $('p-grupo').value.trim(),
     desde: $('p-desde').value,
     hasta: $('p-hasta').value,
     prioridad: $('p-prioridad').value,
@@ -1187,11 +1355,16 @@ $('cfg-monto').addEventListener('change', () => {
   renderTodo();
 });
 
-$('cfg-reservar').addEventListener('change', e => {
-  datos.config.reservarBolsas = e.target.checked;
+// ---------- Eventos: Estaciones ----------
+$('e-emblema').addEventListener('change', e => { emblemaSel = e.target.value; renderEstaciones(); });
+
+$('e-ciudad').addEventListener('change', e => {
+  datos.config.ciudadEstaciones = e.target.value;
   guardar();
-  renderTodo();
+  renderEstaciones();
 });
+
+$('e-buscar').addEventListener('input', renderEstaciones);
 
 // ---------- Eventos: respaldo ----------
 $('btn-csv').addEventListener('click', () => {
@@ -1236,6 +1409,7 @@ function renderTodo() {
   renderSemana();
   renderPromos();
   renderConfig();
+  renderEstaciones();
 }
 
 $('fecha-actual').textContent =

@@ -22,7 +22,7 @@
     <div class="tarjetas-mini">
       <div class="mini neto"><span>Ahorro del mes</span><strong id="c-ahorro-mes">₲ 0</strong></div>
       <div class="mini"><span>Cargado del mes</span><strong id="c-cargado-mes">₲ 0</strong></div>
-      <div class="mini"><span>Ueno libre</span><strong id="c-ueno-libre">₲ 0</strong></div>
+      <div class="mini"><span>Promos hoy</span><strong id="c-promos-hoy">0</strong></div>
     </div>
 
     <div class="tarjeta">
@@ -33,7 +33,6 @@
       </div>
       <p class="vacio nota" id="c-dia-legible"></p>
       <ul id="c-opciones" class="opciones"></ul>
-      <p class="vacio" id="c-regla"></p>
     </div>
 
     <form id="form-carga" class="tarjeta">
@@ -121,15 +120,25 @@
 
     <div id="s-dias"></div>
 
+  </section>
+
+  <!-- TAB ESTACIONES -->
+  <section id="tab-estaciones" class="tab">
     <div class="tarjeta">
-      <h2>🟡 Bolsas flexibles (cualquier día)</h2>
-      <ul id="s-bolsas" class="lista"></ul>
+      <h2>📍 Estaciones adheridas</h2>
+      <div class="fila">
+        <label>Emblema <select id="e-emblema"></select></label>
+        <label>Ciudad <select id="e-ciudad"></select></label>
+      </div>
+      <label>Buscar <input type="search" id="e-buscar" autocomplete="off" placeholder="nombre, calle, ruta…"></label>
     </div>
 
     <div class="tarjeta">
-      <h2>Regla de optimización</h2>
-      <p class="vacio">No usar una bolsa estratégica (Ueno) si desplaza una promoción de 20% que cubre la carga completa ese día. Las bolsas quedan para <strong>cargas adicionales</strong>, para <strong>reemplazar</strong> una promo que no se pudo usar o para cuando la promo del día ya llegó a su tope.</p>
+      <h2>Promos en este emblema</h2>
+      <ul id="e-promos" class="lista"></ul>
     </div>
+
+    <div id="e-listas"></div>
   </section>
 
   <!-- TAB PROMOS -->
@@ -156,7 +165,6 @@
             <option value="principal">Principal</option>
             <option value="reserva">Reserva</option>
             <option value="alternativa">Alternativa</option>
-            <option value="estrategica">Estratégica (bolsa)</option>
           </select>
         </label>
       </div>
@@ -170,6 +178,7 @@
           <option value="reintegro">de reintegro (descuento devuelto)</option>
         </select>
       </label>
+      <label class="espacio-arriba">Tope compartido con (grupo) <input type="text" id="p-grupo" maxlength="30" placeholder="opcional: mismo texto en las promos que comparten tope"></label>
       <div class="fila espacio-arriba">
         <label>Vigente desde <input type="date" id="p-desde"></label>
         <label>Vigente hasta <input type="date" id="p-hasta"></label>
@@ -189,7 +198,6 @@
       </div>
       <label>Días en que cargo</label>
       <div class="dias-semana" id="cfg-dias"></div>
-      <label class="check"><input type="checkbox" id="cfg-reservar"> Reservar las bolsas estratégicas (Ueno) cuando la promo del día cubre la carga completa</label>
     </div>
 
     <div class="tarjeta">
@@ -208,9 +216,11 @@
   <button data-tab="cargar" class="activa" type="button">⛽<span>Cargar</span></button>
   <button data-tab="mes" type="button">📅<span>Mes</span></button>
   <button data-tab="semana" type="button">🗓<span>Semana</span></button>
+  <button data-tab="estaciones" type="button">📍<span>Estaciones</span></button>
   <button data-tab="promos" type="button">💳<span>Promos</span></button>
 </nav>
 
+<script src="estaciones.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

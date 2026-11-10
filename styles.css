@@ -246,7 +246,6 @@ form > label { margin-bottom: 10px; }
 .chip.prio-principal { background: var(--verde); }
 .chip.prio-reserva { background: var(--acento); color: #fff; }
 .chip.prio-alternativa { background: var(--texto-suave); }
-.chip.prio-estrategica { background: var(--violeta); color: #fff; }
 
 .detalle { flex: 1; min-width: 0; }
 .detalle small { display: block; color: var(--texto-suave); font-size: .75rem; line-height: 1.35; }
@@ -340,3 +339,25 @@ form > label { margin-bottom: 10px; }
   .encabezado { text-align: center; }
   .nav-inferior { position: sticky; max-width: 760px; margin: 0 auto; border-radius: 14px 14px 0 0; }
 }
+
+/* Estaciones */
+.enlace {
+  background: none;
+  border: none;
+  padding: 4px 0 0;
+  color: var(--acento);
+  font-size: .75rem;
+  cursor: pointer;
+}
+.btn-mapa {
+  flex: none;
+  color: var(--acento);
+  font-size: .78rem;
+  text-decoration: none;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+a.btn { display: inline-block; text-decoration: none; text-align: center; }
+input[type="search"] { margin-top: 4px; }
