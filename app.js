@@ -732,6 +732,7 @@ function renderMes() {
 
   renderBolsas(uso, detalle);
   renderCargasMes(detalle);
+  renderResumenReintegros(detalle);
   renderHistorial(detalle);
 }
 
@@ -892,6 +893,107 @@ function renderHistorial(detalle) {
   tab.appendChild(tbody);
   env.appendChild(tab);
   caja.appendChild(env);
+}
+
+// ---------- Resumen de reintegros del mes ----------
+// Banco de la carga, para agrupar los reintegros como llegan en los extractos.
+const BANCOS = [['Itaú', /ita[uú]/i], ['GNB', /gnb|basa/i], ['FPJ', /fpj|pj financiera/i],
+  ['Continental', /continental/i], ['Ueno', /ueno/i]];
+
+function bancoDe(c) {
+  const p = promoPorId(c.promoId);
+  const texto = p ? p.tarjeta + ' ' + p.nombre : (c.promoId || '') + ' ' + (c.nota || '');
+  const b = BANCOS.find(([, re]) => re.test(texto));
+  if (b) return b[0];
+  if (p) return p.tarjeta || p.nombre;
+  return c.promoId ? 'Promo eliminada' : 'Sin promoción';
+}
+
+function renderResumenReintegros(detalle) {
+  const inicio = mesSel + '-01';
+  const fin = finDeMes(mesSel);
+  const cargas = datos.cargas.filter(c => c.fecha >= inicio && c.fecha <= fin).sort(ordenCargas);
+  const caja = $('m-resumen');
+  caja.innerHTML = '';
+  $('m-resumen-titulo').textContent = 'Reintegros de ' + mesLegible(mesSel, false);
+
+  let real = 0, estimado = 0;
+  cargas.forEach(c => {
+    const d = detalle[c.id];
+    if (d.ahorro > 0) { if (d.manual) real += d.ahorro; else estimado += d.ahorro; }
+  });
+  const minis = el('div', 'tarjetas-mini sin-margen');
+  const mini = (etq, val, clase) => {
+    const m = el('div', 'mini' + (clase ? ' ' + clase : ''));
+    m.append(el('span', null, etq), el('strong', null, val));
+    return m;
+  };
+  minis.append(mini('Reintegro total', fmt(real + estimado), 'neto'), mini('Confirmado', fmt(real)),
+    mini('Por confirmar', fmt(estimado)));
+  caja.appendChild(minis);
+
+  if (!cargas.length) {
+    caja.appendChild(el('p', 'vacio', 'Sin cargas en ' + mesLegible(mesSel, false) + '.'));
+    return;
+  }
+
+  // Por banco
+  const porBanco = {};
+  cargas.forEach(c => {
+    const b = bancoDe(c);
+    const x = porBanco[b] || (porBanco[b] = { cargas: 0, cargado: 0, ahorro: 0, porConfirmar: 0 });
+    const d = detalle[c.id];
+    x.cargas++;
+    x.cargado += Number(c.monto) || 0;
+    x.ahorro += d.ahorro;
+    if (d.ahorro > 0 && !d.manual) x.porConfirmar += d.ahorro;
+  });
+  caja.appendChild(el('h3', 'subtitulo', 'Por banco'));
+  const tb = tablaCon(['Banco', 'Cargas', 'Reintegro', 'Por confirmar']);
+  Object.keys(porBanco).sort((a, b) => porBanco[b].ahorro - porBanco[a].ahorro).forEach(b => {
+    const x = porBanco[b];
+    filaTabla(tb.tbody, [b, x.cargas, fmt(x.ahorro), x.porConfirmar ? fmt(x.porConfirmar) : '—'], 2);
+  });
+  const tot = cargas.reduce((s, c) => s + (Number(c.monto) || 0), 0);
+  filaTabla(tb.tbody, ['Total', cargas.length, fmt(real + estimado), estimado ? fmt(estimado) : '—'], 2, 'total');
+  caja.appendChild(tb.env);
+
+  // Detalle de cada carga
+  caja.appendChild(el('h3', 'subtitulo', 'Cargas'));
+  const td = tablaCon(['Carga', 'Monto', 'Reintegro']);
+  td.env.querySelector('table').classList.add('detalle-cargas');
+  cargas.forEach(c => {
+    const d = detalle[c.id];
+    const marca = d.ahorro > 0 ? (d.manual ? ' ✓' : ' ~') : '';
+    filaTabla(td.tbody, [fechaCorta(c.fecha).slice(0, 5) + ' · ' + bancoDe(c) + (c.emblema ? ' · ' + c.emblema : ''),
+      fmt(c.monto), d.ahorro > 0 ? fmt(d.ahorro) + marca : '—'], 2);
+  });
+  filaTabla(td.tbody, ['Total', fmt(tot), fmt(real + estimado)], 2, 'total');
+  caja.appendChild(td.env);
+  caja.appendChild(el('p', 'vacio', 'Costo neto del mes: ' + fmt(tot - real - estimado) + ' (' +
+    (tot ? fmtPct((real + estimado) / tot) : '0%') + ' de ahorro).'));
+  caja.appendChild(el('p', 'vacio', '✓ reintegro real (cargado a mano al verlo en el extracto) · ~ estimado por la app. ' +
+    'Para confirmar uno, editá la carga y completá "Reintegro real".'));
+}
+
+function tablaCon(columnas) {
+  const env = el('div', 'envoltorio-tabla');
+  const tab = el('table', 'tabla');
+  const thead = el('thead');
+  const tr = el('tr');
+  columnas.forEach(c => tr.appendChild(el('th', null, c)));
+  thead.appendChild(tr);
+  const tbody = el('tbody');
+  tab.append(thead, tbody);
+  env.appendChild(tab);
+  return { env, tbody };
+}
+
+// `verde`: indice de la columna que va en verde (el reintegro).
+function filaTabla(tbody, valores, verde, clase) {
+  const tr = el('tr', clase || null);
+  valores.forEach((v, i) => tr.appendChild(el('td', i === verde ? 'cobrado' : null, String(v))));
+  tbody.appendChild(tr);
 }
 
 // ---------- Tab Semana ----------
@@ -1218,15 +1320,19 @@ function renderPromosEmblema(promos) {
 }
 
 // ---------- Exportar ----------
-function filasCSV() {
+// Sin rango exporta todas las cargas; con rango, solo las de ese periodo.
+function filasCSV(desde, hasta) {
   const { detalle } = calcular();
   const limpiar = s => String(s || '').replace(/;/g, ',');
-  const filas = [['fecha', 'dia', 'monto', 'ahorro', 'costo_efectivo', 'promocion', 'tarjeta', 'emblema', 'nota']];
+  const filas = [['fecha', 'dia', 'monto', 'ahorro', 'costo_efectivo', 'promocion', 'banco', 'tarjeta', 'emblema',
+    'reintegro', 'nota']];
   datos.cargas.slice().sort(ordenCargas).forEach(c => {
+    if ((desde && c.fecha < desde) || (hasta && c.fecha > hasta)) return;
     const p = promoPorId(c.promoId);
-    const ahorro = detalle[c.id].ahorro;
-    filas.push([c.fecha, nombreDia(c.fecha), c.monto, ahorro, c.monto - ahorro,
-      limpiar(p ? p.nombre : ''), limpiar(p ? p.tarjeta : ''), limpiar(c.emblema), limpiar(c.nota)]);
+    const det = detalle[c.id];
+    filas.push([c.fecha, nombreDia(c.fecha), c.monto, det.ahorro, c.monto - det.ahorro,
+      limpiar(p ? p.nombre : ''), limpiar(bancoDe(c)), limpiar(p ? p.tarjeta : ''), limpiar(c.emblema),
+      det.ahorro > 0 ? (det.manual ? 'real' : 'estimado') : '', limpiar(c.nota)]);
   });
   return filas.map(f => f.join(';')).join('\r\n');
 }
@@ -1367,6 +1473,10 @@ $('e-ciudad').addEventListener('change', e => {
 $('e-buscar').addEventListener('input', renderEstaciones);
 
 // ---------- Eventos: respaldo ----------
+$('btn-csv-mes').addEventListener('click', () => {
+  descargar('combustibles-' + mesSel + '.csv', '\ufeff' + filasCSV(mesSel + '-01', finDeMes(mesSel)), 'text/csv;charset=utf-8');
+});
+
 $('btn-csv').addEventListener('click', () => {
   descargar('combustibles-cargas-' + hoyISO() + '.csv', '﻿' + filasCSV(), 'text/csv;charset=utf-8');
 });

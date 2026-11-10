@@ -34,7 +34,10 @@ funciona sin conexión.
    promo, puntito azul = día habitual todavía sin carga). Debajo, la **bolsa de cada
    promoción**: ahorro del mes, máximo que puede devolver en el mes con sus topes y lo
    que **queda** por aprovechar desde hoy (en meses cerrados: lo que quedó *sin usar*).
-   Después vienen la lista de cargas y el historial mes a mes.
+   Después viene **Reintegros del mes**: total, cuánto está confirmado (reintegro real
+   cargado a mano al verlo en el extracto, ✓) y cuánto es estimado por la app (~), una
+   tabla por banco y el detalle de cada carga, con *CSV del mes*. Al final, la lista de
+   cargas y el historial mes a mes.
 3. **🗓 Semana**: plan de la semana día por día con la promo principal (★) y las
    alternativas y lo cargado cada día.
 4. **📍 Estaciones**: se elige el emblema (Petrochaco, Copetrol, Shell…) y se ven sus
@@ -91,5 +94,5 @@ Después abrir <http://localhost:8751>.
 
 Los datos son locales al navegador: si se limpia el sitio o se cambia de teléfono, se
 pierden. En **Promos → Copia de seguridad** están *Descargar respaldo* (JSON) y
-*Restaurar respaldo*. El **Exportar CSV** de la pestaña Mes saca todas las cargas
+*Restaurar respaldo*. El **Exportar todo (CSV)** de la pestaña Mes saca todas las cargas (y *CSV del mes*, solo las del mes)
 (separador `;`) para abrir en Excel.

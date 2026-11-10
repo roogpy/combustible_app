@@ -361,3 +361,18 @@ form > label { margin-bottom: 10px; }
 }
 a.btn { display: inline-block; text-decoration: none; text-align: center; }
 input[type="search"] { margin-top: 4px; }
+
+/* Resumen de reintegros */
+.subtitulo { font-size: .8rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: .03em; margin: 14px 0 4px; }
+.btn-chico {
+  background: var(--panel-2);
+  border: 1px solid var(--borde);
+  color: var(--texto);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: .72rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tabla.detalle-cargas td:first-child { white-space: normal; font-size: .8rem; }
+.tabla.detalle-cargas td:first-child::first-letter { text-transform: none; }
