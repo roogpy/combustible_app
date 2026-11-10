@@ -37,20 +37,15 @@ const NOTA_CONT = 'Tope semanal de compra por cuenta de tarjeta, en conjunto par
 // Promociones vigentes en noviembre 2026. Las de FPJ comparten un mismo tope
 // mensual (grupoTope): lo que se usa en una lo descuenta de las otras.
 const PROMOS_INICIALES = [
-  { id: 'itau-shell', nombre: 'Itaú / Shell lunes', tarjeta: 'TC Itaú Clásica + POS Bancard', emblemas: 'Shell',
-    dias: [1], pct: 20, topeSemanal: 0, topeMensual: 150000, tipoTope: 'compra',
+  { id: 'itau-shell', nombre: 'Itaú / Shell lunes', tarjeta: 'TC Itaú Oro + POS Bancard', emblemas: 'Shell',
+    dias: [1], pct: 20, topeSemanal: 0, topeMensual: 500000, tipoTope: 'compra',
     desde: '2026-02-23', hasta: '2026-12-31', prioridad: 'principal', activa: true,
-    nota: 'Tope mensual de compra por cliente (titular + adicionales): Clásica 150.000, Oro/Premium 500.000. ' +
-      'No aplica a Personal Bank. No acumulable. Si tu tarjeta es Oro o Premium, subí el tope.' },
-  { id: 'itau-shell-pb', nombre: 'Itaú PB / Shell miércoles', tarjeta: 'TC Itaú Personal Bank + POS Bancard', emblemas: 'Shell',
-    dias: [3], pct: 25, topeSemanal: 0, topeMensual: 1200000, tipoTope: 'compra',
-    desde: '2026-02-23', hasta: '2026-12-31', prioridad: 'alternativa', activa: false,
-    nota: 'Solo Personal Bank (Amex Platinum y Visa Infinite). Activala si tenés esa tarjeta.' },
-  { id: 'itau-vpower', nombre: 'Itaú / Shell V-Power jueves', tarjeta: 'TC Itaú (todas)', emblemas: 'Shell',
-    dias: [4], pct: 25, topeSemanal: 300000, topeMensual: 0, tipoTope: 'compra',
+    nota: 'Tope mensual de compra por cliente (titular + adicionales) con Oro: 500.000. No acumulable.' },
+  { id: 'itau-vpower', nombre: 'Itaú / Shell V-Power jueves', tarjeta: 'TC Itaú Oro', emblemas: 'Shell',
+    dias: [4], pct: 25, topeSemanal: 500000, topeMensual: 0, tipoTope: 'compra',
     desde: '2026-10-29', hasta: '2026-11-26', prioridad: 'principal', activa: true,
-    nota: 'Solo Shell V-Power. Tope de carga por jueves: Clásica 300.000, Oro/Personal Bank 500.000. ' +
-      'No descuenta de los topes de lunes y miércoles. Cupones x5.' },
+    nota: 'Solo Shell V-Power. Tope de carga de 500.000 por jueves con Oro. ' +
+      'No descuenta del tope de los lunes. Cupones x5.' },
   { id: 'gnb-copetrol', nombre: 'GNB / Copetrol', tarjeta: 'GNB Mastercard Clásica + QR Copetrol Vamos', emblemas: 'Copetrol',
     dias: [1], pct: 20, topeSemanal: 0, topeMensual: 1000000, tipoTope: 'compra',
     desde: '2026-07-06', hasta: '2026-12-28', prioridad: 'reserva', activa: true, nota: '' },
@@ -93,7 +88,7 @@ const PROMOS_INICIALES = [
 ];
 
 // Promos que la version 3 agrega o reemplaza en los datos ya guardados.
-const IDS_V3 = ['itau-shell', 'itau-shell-pb', 'itau-vpower', 'fpj-petrosur', 'fpj-petrochaco', 'fpj-copetrol',
+const IDS_V3 = ['itau-shell', 'itau-vpower', 'fpj-petrosur', 'fpj-petrochaco', 'fpj-copetrol',
   'cont-energy', 'cont-compasa', 'cont-petrochaco', 'cont-petromax'];
 const IDS_UENO = ['ueno-petropar', 'ueno-otros'];
 
@@ -1150,11 +1145,16 @@ function renderEstaciones() {
     caja.appendChild(el('p', 'vacio', 'No hay promociones vigentes cargadas.'));
     return;
   }
+  const listasVistas = new Set();
   promos.forEach(p => {
-    const t = el('div', 'tarjeta');
     const filas = estacionesDe(p);
+    if (filas && listasVistas.has(filas)) return;
+    if (filas) listasVistas.add(filas);
+    // Promos del emblema que comparten esta misma lista (p. ej. Itaú lunes y jueves).
+    const titulo = filas ? promos.filter(x => estacionesDe(x) === filas).map(x => x.nombre).join(' · ') : p.nombre;
+    const t = el('div', 'tarjeta');
     if (!filas) {
-      t.appendChild(el('h2', null, p.nombre));
+      t.appendChild(el('h2', null, titulo));
       t.appendChild(el('p', 'vacio', 'No hay lista de estaciones adheridas cargada para esta promo.'));
       // Sin lista: busqueda del emblema en el mapa, en la ciudad guardada.
       const ciudadMapa = ciudad || datos.config.ciudadEstaciones;
@@ -1169,7 +1169,7 @@ function renderEstaciones() {
     const visibles = filas.filter(r => (!ciudad || r[0] === ciudad) &&
       (!busca || sinTildes(r.join(' ')).includes(busca)));
     const cab = el('h2', 'con-total');
-    cab.appendChild(el('span', null, p.nombre));
+    cab.appendChild(el('span', null, titulo));
     cab.appendChild(el('strong', null, visibles.length + (visibles.length === filas.length ? '' : ' de ' + filas.length)));
     t.appendChild(cab);
     if (ESTACIONES_INCOMPLETAS[p.id]) t.appendChild(el('p', 'vacio nota aviso', ESTACIONES_INCOMPLETAS[p.id]));

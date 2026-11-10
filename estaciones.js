@@ -247,6 +247,79 @@ const FPJ_COPETROL = [
   ['Encarnación', 'Irrazábal', 'Av. Irrazábal esq. Curupayty'],
 ];
 
+// Shell stations from the "EESS Itaú" stories (Shell Paraguay). The stories
+// skip part of Asunción and cut Mariano Roque Alonso; Fernando de la Mora is
+// split across two screens.
+const SHELL_ITAU = [
+  ['Areguá', '', 'Mcal. Estigarribia y Mcal. López km 28'],
+  ['Areguá', '', 'Ruta Luque - Areguá - Caacupemí'],
+  ['Asunción', '', 'Avda. Mcal. López y Madame Lynch'],
+  ['Asunción', '', 'Antolín Irala esq. Madame Lynch'],
+  ['Asunción', '', 'Avda. Fdo. de la Mora y Pariri'],
+  ['Asunción', '', 'Avda. 25 de Mayo y Tacuary'],
+  ['Asunción', '', 'Avda. 1er. Presidente y Santísimo Sacramento'],
+  ['Asunción', '', 'Avda. Eusebio Ayala y De la Victoria'],
+  ['Asunción', '', 'Avda. Rodríguez de Francia c/ Yegros'],
+  ['Asunción', '', 'Avda. Artigas c/ Primer Presidente'],
+  ['Asunción', '', 'Avda. Aviadores del Chaco Nº 2503 c/ Campos Cervera'],
+  ['Asunción', '', 'Avda. Aviadores del Chaco y Molas López'],
+  ['Asunción', '', 'Avda. Boggiani c/ Campos Cervera'],
+  ['Asunción', '', 'Avda. Choferes del Chaco y Chaco Boreal'],
+  ['Asunción', '', 'Avda. Fernando de la Mora esq. Ybapovo'],
+  ['Asunción', '', 'Avda. José Félix Bogado y Gral. Santos'],
+  ['Asunción', '', 'Avda. Mcal. López c/ R.I. 4 Curupayty'],
+  ['Asunción', '', 'Avda. Mcal. López y Santa Rosa'],
+  ['Asunción', '', 'Avda. Perú y Juan de Zalazar'],
+  ['Asunción', '', 'Avda. Perú y Lomas Valentinas'],
+  ['Asunción', '', 'Avda. Sacramento y Genaro Romero'],
+  ['Asunción', '', 'Aviadores del Chaco esq. San Martín'],
+  ['Asunción', '', 'Brasil y Rca. de Colombia'],
+  ['Asunción', '', 'Brasilia y Sargento Gauto'],
+  ['Asunción', '', 'Cnel. Bóveda y Listo Valois'],
+  ['Asunción', '', 'Dr. Miranda y Alférez Silva - Sajonia'],
+  ['Asunción', '', 'Eusebio Ayala y Choferes del Chaco'],
+  ['Asunción', '', 'Ntra. Señora de la Asunción y Piribebuy'],
+  ['Asunción', '', 'Pdte. Franco e/ Ayolas'],
+  ['Asunción', '', 'Pte. Juan D. Perón y Dr. Luis Migone Battilana'],
+  ['Asunción', '', 'Ruta Transchaco y 27 de Noviembre km 8'],
+  ['Asunción', '', 'Ruta Transchaco y Dr. Semidei'],
+  ['Asunción', '', 'San Martín esq. Austria'],
+  ['Asunción', '', 'Teodoro S. Mongelós y Rca. Francesa'],
+  ['Asunción', '', 'Tte. José F. López c/ Aztecas'],
+  ['Fernando de la Mora', '', 'Mcal. Estigarribia y Corrales'],
+  ['Fernando de la Mora', '', 'Avda. Mcal. López y Don Bosco'],
+  ['Fernando de la Mora', '', 'Avda. Mcal. López y Waldino Lovera'],
+  ['Fernando de la Mora', '', 'Avda. Santa Teresa - frente Frigorífico Guaraní'],
+  ['Fernando de la Mora', '', 'Defensores del Chaco y Yatayty Corá'],
+  ['Fernando de la Mora', '', 'Acceso Sur Nro. 619 / María Felicidad'],
+  ['Fernando de la Mora', '', 'Mcal. López y Paraguarí'],
+  ['Fernando de la Mora', '', 'Ingavi e/ Santa Carolina y Atyrá'],
+  ['Fernando de la Mora', '', 'Zavala Cué y 11 de Septiembre'],
+  ['Fernando de la Mora', '', 'Avda. 11 de Septiembre e/ Zavala Cué'],
+  ['Luque', '', 'Avda. Cap. Andrés Insfrán c/ Ntra. Sra. del Pilar'],
+  ['Luque', '', 'Autopista Silvio Pettirossi c/ Paseo el Lapacho'],
+  ['Luque', '', 'Calle Rosario esq. calle S/N - Ruta Luque - Limpio'],
+  ['Luque', '', 'Avda. Autopista Silvio Pettirossi - Campo Grande'],
+  ['Luque', '', 'Avda. Eugenio A. Garay c/ Rca. de Colombia - Ruta Luque San Lorenzo'],
+  ['Luque', '', 'Calle Caacupé y Nildo Méndez - Barrio Villa Policial'],
+  ['Luque', '', 'Azara esq. Iturbe'],
+  ['Luque', '', 'Avda. Gral. Aquino y Avda. Caballero'],
+  ['Mariano Roque Alonso', '', 'Ruta Transchaco y Calle Eusebio Ayala'],
+  ['Mariano Roque Alonso', '', 'Ruta PY 03 Gral. Elizardo Aquino km 20'],
+  ['Mariano Roque Alonso', '', 'Ruta Transchaco y Cnel. Hermosilla'],
+  ['Mariano Roque Alonso', '', 'Ruta Transchaco esq. Montevideo'],
+];
+
+// Petrosur stations in Asunción (Petrofiel locator), used by every Petrosur promo.
+const PETROSUR_ASU = [
+  ['Asunción', 'Petrosur 21 Proyectadas', 'Avda. Itá Ybate y Adolfo Rojas Silva'],
+  ['Asunción', 'Petrosur 21 Proyectadas esq. Mayor Fleitas', '21 Proyectadas esq. Mayor Fleitas'],
+  ['Asunción', 'Petrosur Alberdi y Milano', 'Alberdi esq. Milano (2da. Proyectada)'],
+  ['Asunción', 'Petrosur Artigas', 'Avda. Artigas esq. Gral. Santos'],
+  ['Asunción', 'Petrosur Brasilia', 'Avda. Brasilia esq. Patria'],
+  ['Asunción', 'Petrosur Santísima Trinidad', 'Avda. Santísima Trinidad esq. Tte. Florencio Fernández'],
+];
+
 const ESTACIONES = {
   'cont-energy': [
     ['Asunción', '', 'Av. Gral. Santos 2.181 casi Obispo Maíz'],
@@ -330,11 +403,18 @@ const ESTACIONES = {
     ['Asunción', '', 'Calle Roma, entre Independencia Nacional y Nuestra Señora de la Asunción'],
     ['Asunción', '', 'Avda. República Argentina y Caaguazú'],
   ],
+  'itau-shell': SHELL_ITAU,
+  'itau-vpower': SHELL_ITAU,
+  'fpj-petrosur': PETROSUR_ASU,
+  'gnb-petrosur': PETROSUR_ASU,
   'fpj-petrochaco': FPJ_PETROCHACO,
   'fpj-copetrol': FPJ_COPETROL,
 };
 
 // Lists known to be partial, shown as a warning under the list.
 const ESTACIONES_INCOMPLETAS = {
-  'cont-petromax': 'La captura del folleto termina en Asunción: faltan las demás ciudades.',
+  'cont-petromax': 'Solo las estaciones de Asunción.',
+  'itau-shell': 'Faltan algunas de Asunción (las historias saltan de Eusebio Ayala a Ntra. Señora) y pueden faltar en Mariano Roque Alonso. Hay otras ciudades sin lista.',
+  'fpj-petrosur': 'Solo las estaciones de Asunción.',
+  'gnb-petrosur': 'Solo las estaciones de Asunción.',
 };

@@ -64,7 +64,7 @@ funciona sin conexión.
 ## Datos iniciales
 
 En el primer uso la app arranca con las promociones de noviembre 2026: GNB, Itaú/Shell
-(lunes 20%, miércoles Personal Bank pausada, jueves V-Power), FPJ miércoles (Petrosur,
+(Oro: lunes 20% y jueves V-Power 25%), FPJ miércoles (Petrosur,
 Petrochaco, Copetrol, tope compartido) y Continental viernes (Petrobras/Copetrol,
 Energy, Compasa, Petrochaco, Petromax). Todo se edita o se borra desde la app.
 
