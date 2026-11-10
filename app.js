@@ -1349,6 +1349,194 @@ document.querySelector('.nav-inferior').addEventListener('click', e => {
   if (btn) irATab(btn.dataset.tab);
 });
 
+// ---------- Importar de Ganancias Conductor ----------
+// La app Ganancias (roogpy/conductor-app) guarda en localStorage, bajo
+// GANANCIAS_KEY, un array de registros; los gastos de combustible son
+// { tipo: 'gasto', categoria: 'combustible', fecha, monto, nota }.
+// Publicadas las dos en roogpy.github.io comparten origen, asi que se leen
+// directo. Si no (otro navegador, iPhone con la app instalada), se usa el CSV
+// que exporta Ganancias: "fecha","tipo","plataforma_o_categoria","monto_gs","viajes","nota".
+const GANANCIAS_KEY = 'conductor-registros-v1';
+const EMBLEMAS_CONOCIDOS = ['Shell', 'Petrobras', 'Copetrol', 'Petrosur', 'Petrochaco', 'Petromax', 'Energy',
+  'Compasa', 'Petropar', 'Puma', 'Enex', 'Esso', 'Monday'];
+
+let ganPendientes = [];  // filas de la vista previa
+
+function leerGananciasLocal() {
+  let regs;
+  try { regs = JSON.parse(localStorage.getItem(GANANCIAS_KEY)); } catch (e) { regs = null; }
+  if (!Array.isArray(regs)) return null;
+  return regs
+    .filter(r => r && r.tipo === 'gasto' && r.categoria === 'combustible' && r.fecha && Number(r.monto) > 0)
+    .map(r => ({ fecha: r.fecha, monto: Math.round(Number(r.monto)), nota: r.nota || '' }));
+}
+
+// CSV con comillas dobles y separador coma (o punto y coma si lo abrio Excel).
+function parsearCSV(texto) {
+  texto = texto.replace(/^﻿/, '');
+  const sep = (texto.split(/\r?\n/)[0].match(/;/g) || []).length > (texto.split(/\r?\n/)[0].match(/,/g) || []).length ? ';' : ',';
+  const filas = [];
+  let fila = [], campo = '', comillas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const ch = texto[i];
+    if (comillas) {
+      if (ch === '"' && texto[i + 1] === '"') { campo += '"'; i++; }
+      else if (ch === '"') comillas = false;
+      else campo += ch;
+    } else if (ch === '"') comillas = true;
+    else if (ch === sep) { fila.push(campo); campo = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && texto[i + 1] === '\n') i++;
+      fila.push(campo); filas.push(fila); fila = []; campo = '';
+    } else campo += ch;
+  }
+  if (campo || fila.length) { fila.push(campo); filas.push(fila); }
+  return filas.filter(f => f.some(c => c.trim()));
+}
+
+function leerGananciasCSV(texto) {
+  const filas = parsearCSV(texto);
+  if (!filas.length) return null;
+  const cab = filas[0].map(c => sinTildes(c.trim()));
+  const col = n => cab.indexOf(n);
+  const iF = col('fecha'), iT = col('tipo'), iC = col('plataforma_o_categoria'), iM = col('monto_gs'), iN = col('nota');
+  if (iF < 0 || iT < 0 || iC < 0 || iM < 0) return null;
+  return filas.slice(1)
+    .filter(f => sinTildes(f[iT] || '') === 'gasto' && sinTildes(f[iC] || '') === 'combustible')
+    .map(f => ({ fecha: (f[iF] || '').trim(), monto: Number(String(f[iM]).replace(/\D/g, '')), nota: iN >= 0 ? (f[iN] || '').trim() : '' }))
+    .filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.fecha) && r.monto > 0);
+}
+
+// Clave estable del gasto: la misma venga de localStorage o del CSV, asi no
+// se importa dos veces. El contador separa dos cargas iguales el mismo dia.
+function conClaves(gastos) {
+  const vistos = {};
+  return gastos.slice().sort((a, b) => a.fecha.localeCompare(b.fecha)).map(g => {
+    const base = g.fecha + '|' + g.monto + '|' + g.nota;
+    vistos[base] = (vistos[base] || 0) + 1;
+    return Object.assign({}, g, { clave: 'ganancias:' + base + '|' + vistos[base] });
+  });
+}
+
+function emblemaEnNota(nota) {
+  const n = sinTildes(nota);
+  const todos = new Set(EMBLEMAS_CONOCIDOS);
+  datos.promos.forEach(p => emblemasDe(p).forEach(e => todos.add(e)));
+  return Array.from(todos).find(e => n.includes(sinTildes(e))) || '';
+}
+
+// Promo sugerida: la que la app recomendaria ese dia para ese monto, limitada
+// al emblema si la nota lo menciona. Es una sugerencia: Ganancias no guarda
+// con que tarjeta se pago.
+function sugerirPromo(fecha, monto, emblema) {
+  let { opciones } = opcionesPara(fecha, monto);
+  if (emblema) opciones = opciones.filter(o => emblemasDe(o.p).includes(emblema));
+  const rec = recomendada(opciones);
+  return rec ? rec.p.id : '';
+}
+
+function prepararImportacion(gastos, origen) {
+  const yaImportadas = new Set(datos.cargas.map(c => c.origen).filter(Boolean));
+  const nuevas = conClaves(gastos).filter(g => !yaImportadas.has(g.clave));
+  ganPendientes = nuevas.map(g => {
+    const emblema = emblemaEnNota(g.nota);
+    // Ya cargada a mano en esta app: misma fecha y monto, sin origen.
+    const duplicada = datos.cargas.some(c => !c.origen && c.fecha === g.fecha && Number(c.monto) === g.monto);
+    return Object.assign(g, { emblema, promoId: sugerirPromo(g.fecha, g.monto, emblema), elegida: !duplicada, duplicada });
+  });
+  const total = gastos.length;
+  $('gan-resumen').textContent = origen + ': ' + total + (total === 1 ? ' carga de combustible' : ' cargas de combustible') +
+    (total - nuevas.length ? ', ' + (total - nuevas.length) + ' ya importadas' : '') +
+    (nuevas.length ? '. La promo de cada una es una sugerencia (Ganancias no guarda la tarjeta): revisala antes de importar.' : '. No hay nada nuevo para importar.');
+  $('gan-panel').hidden = false;
+  renderGanancias();
+}
+
+function renderGanancias() {
+  const ul = $('gan-lista');
+  ul.innerHTML = '';
+  ganPendientes.forEach((g, i) => {
+    const li = el('li', 'gan-fila' + (g.elegida ? '' : ' apagada'));
+    const check = el('input');
+    check.type = 'checkbox';
+    check.checked = g.elegida;
+    check.addEventListener('change', () => { g.elegida = check.checked; renderGanancias(); });
+
+    const d = el('div', 'detalle');
+    d.appendChild(el('span', null, fechaLegible(g.fecha, false) + ' · ' + fmt(g.monto)));
+    const extra = [];
+    if (g.nota) extra.push(g.nota);
+    if (g.emblema) extra.push('emblema: ' + g.emblema);
+    if (extra.length) d.appendChild(el('small', null, extra.join(' · ')));
+    if (g.duplicada) d.appendChild(el('small', 'aviso', 'Ya hay una carga igual ese día: puede ser la misma.'));
+
+    const sel = el('select', 'gan-promo');
+    sel.appendChild(new Option('Sin promoción', ''));
+    const { opciones } = opcionesPara(g.fecha, g.monto);
+    opciones.forEach(o => sel.appendChild(new Option(o.p.nombre + ' — ' + fmt(o.ahorro), o.p.id)));
+    sel.value = g.promoId;
+    sel.addEventListener('change', () => { g.promoId = sel.value; });
+    d.appendChild(sel);
+
+    li.append(check, d);
+    ul.appendChild(li);
+  });
+  const n = ganPendientes.filter(g => g.elegida).length;
+  $('btn-gan-importar').disabled = !n;
+  $('btn-gan-importar').textContent = n ? 'Importar ' + n + (n === 1 ? ' carga' : ' cargas') : 'Importar seleccionadas';
+}
+
+function importarGanancias() {
+  const elegidas = ganPendientes.filter(g => g.elegida);
+  if (!elegidas.length) return;
+  elegidas.forEach((g, i) => {
+    const p = promoPorId(g.promoId);
+    datos.cargas.push({
+      id: 'g' + Date.now() + '-' + i,
+      fecha: g.fecha,
+      monto: g.monto,
+      promoId: g.promoId || null,
+      emblema: g.emblema || (p ? emblemasDe(p)[0] || '' : ''),
+      reintegro: null,
+      nota: g.nota ? 'Ganancias · ' + g.nota : 'Ganancias',
+      origen: g.clave,
+    });
+  });
+  guardar();
+  ganPendientes = [];
+  $('gan-panel').hidden = true;
+  mesSel = claveMes(elegidas[elegidas.length - 1].fecha);
+  renderTodo();
+  alert('Importadas ' + elegidas.length + (elegidas.length === 1 ? ' carga.' : ' cargas.'));
+}
+
+$('btn-gan-buscar').addEventListener('click', () => {
+  const gastos = leerGananciasLocal();
+  if (gastos === null) {
+    alert('No encontré datos de Ganancias en este navegador. Abrí Ganancias, exportá el CSV del mes y elegilo con "Elegir CSV".');
+    return;
+  }
+  prepararImportacion(gastos, 'Ganancias');
+});
+
+$('btn-gan-csv').addEventListener('click', () => $('archivo-gan').click());
+
+$('archivo-gan').addEventListener('change', e => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const lector = new FileReader();
+  lector.onload = () => {
+    const gastos = leerGananciasCSV(String(lector.result));
+    if (gastos === null) alert('El archivo no parece un CSV exportado de Ganancias.');
+    else prepararImportacion(gastos, 'CSV ' + archivo.name);
+  };
+  lector.readAsText(archivo, 'utf-8');
+  e.target.value = '';
+});
+
+$('btn-gan-importar').addEventListener('click', importarGanancias);
+$('btn-gan-cerrar').addEventListener('click', () => { ganPendientes = []; $('gan-panel').hidden = true; });
+
 // ---------- Eventos: Cargar ----------
 $('c-fecha').addEventListener('change', () => {
   if (!editandoCarga) promoElegida = null;
@@ -1394,6 +1582,9 @@ $('form-carga').addEventListener('submit', e => {
     reintegro: $('c-reintegro').value ? montoDe($('c-reintegro')) : null,
     nota: $('c-nota').value.trim(),
   };
+  // Una carga importada conserva su origen al editarla (evita reimportarla).
+  const previa = editandoCarga && datos.cargas.find(x => x.id === editandoCarga);
+  if (previa && previa.origen) c.origen = previa.origen;
   if (editandoCarga) datos.cargas = datos.cargas.map(x => (x.id === editandoCarga ? c : x));
   else datos.cargas.push(c);
   guardar();

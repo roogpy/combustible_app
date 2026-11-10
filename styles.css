@@ -376,3 +376,7 @@ input[type="search"] { margin-top: 4px; }
 }
 .tabla.detalle-cargas td:first-child { white-space: normal; font-size: .8rem; }
 .tabla.detalle-cargas td:first-child::first-letter { text-transform: none; }
+.gan-fila { align-items: flex-start !important; }
+.gan-fila input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.gan-fila select { margin-top: 6px; font-size: .8rem; }
+.btn:disabled { opacity: .5; }

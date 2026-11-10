@@ -48,6 +48,22 @@ funciona sin conexión.
    vigencia, prioridad, grupo de tope compartido), la rutina (carga habitual opcional y
    días en que se carga) y los respaldos.
 
+## Importar de Ganancias
+
+Al final de **⛽ Cargar**, *Importar de Ganancias* trae los gastos de categoría
+**Combustible** de la app Ganancias Conductor (`roogpy/conductor-app`):
+
+- **Buscar en Ganancias** lee directo su `localStorage` (`conductor-registros-v1`). Funciona
+  porque las dos apps se publican en `roogpy.github.io` y comparten origen; hace falta
+  abrirlas en el mismo navegador.
+- **Elegir CSV** usa el CSV del mes que exporta Ganancias (sirve en otro dispositivo o en
+  iPhone, donde cada app instalada tiene su propio almacenamiento).
+
+Ganancias no guarda la tarjeta, así que cada carga viene con una **promo sugerida** (la
+que la app recomendaría ese día, limitada al emblema si la nota lo nombra) que se puede
+cambiar antes de importar. Las cargas importadas llevan `origen` y no se vuelven a
+importar; si ya hay una carga igual (fecha y monto) cargada a mano, viene destildada.
+
 ## Cómo se calculan los topes
 
 - Las semanas van de **lunes a domingo**; los meses son calendario.

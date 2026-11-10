@@ -57,6 +57,24 @@
       <h2>Últimas cargas</h2>
       <ul id="c-ultimas" class="lista"></ul>
     </div>
+
+    <div class="tarjeta">
+      <h2>⬇ Importar de Ganancias</h2>
+      <p class="vacio">Trae los gastos de <strong>Combustible</strong> de la app Ganancias Conductor. Si las dos apps están en el mismo navegador se leen directo; si no, exportá el CSV del mes en Ganancias y elegilo acá.</p>
+      <div class="fila">
+        <button id="btn-gan-buscar" class="btn gris" type="button">🔎 Buscar en Ganancias</button>
+        <button id="btn-gan-csv" class="btn gris" type="button">📄 Elegir CSV</button>
+      </div>
+      <input type="file" id="archivo-gan" accept=".csv,text/csv" hidden>
+      <div id="gan-panel" hidden>
+        <p class="vacio nota" id="gan-resumen"></p>
+        <ul id="gan-lista" class="lista"></ul>
+        <div class="fila">
+          <button id="btn-gan-importar" class="btn verde" type="button">Importar seleccionadas</button>
+          <button id="btn-gan-cerrar" class="btn gris" type="button">Cerrar</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- TAB MES -->
